@@ -2,6 +2,13 @@
   "id": "collab",
   "name": "Collab",
   "description": "Share an agent live with anyone through an end-to-end encrypted browser link: they watch, and can prompt if you allow it.",
+  "translations": {
+    "zh-CN": {
+      "name": "Collab 协作",
+      "description": "通过端到端加密的浏览器链接与任何人实时共享 Agent：对方可以旁观，经你允许还可以发送提示词。"
+    }
+  },
+  "icon": "assets/icon.png",
   "media": [
     "assets/app-light.png",
     "assets/guest-light.png",

@@ -21,7 +21,10 @@
     "client/",
     "server/",
     "shared/",
-    "assets/"
+    "assets/",
+    "THIRD_PARTY_NOTICES.md",
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "build:guest": "node scripts/build-guest.mjs",

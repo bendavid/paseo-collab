@@ -1,6 +1,10 @@
 Share one agent with someone through a browser link. A **Collab** pill on each agent's composer creates a one-off public link. The guest opens it in any browser, with no Paseo app or account. They watch the conversation live and, if you allow it, send prompts to the agent.
 
-The guest page is a static site on GitHub Pages, and the conversation travels through the Paseo relay, the same service the Paseo app uses for remote access. Nothing needs installing or configuring. The conversation is end-to-end encrypted between your daemon and the guest's browser: the key and an access secret travel in the link's `#fragment`, which browsers never send to any server, so the relay forwards only ciphertext and the page's host never sees the conversation.
+The guest page is a static site on GitHub Pages, and the conversation travels through the Paseo relay, the same service the Paseo app uses for remote access. The conversation is end-to-end encrypted between your daemon and the guest's browser: the key and an access secret travel in the link's `#fragment`, which browsers never send to any server, so the relay forwards only ciphertext and the page's host never sees the conversation.
+
+## Setup
+
+The plugin needs Paseo 0.15.2 or later on the host, and npm on the daemon's command path, which Paseo uses to install the plugin's locked dependencies. It has no settings and needs no accounts. It works on any operating system Paseo runs on. Guests need only a current browser. A self-hosted relay or guest page can replace the defaults; the README explains how.
 
 ## What guests see and can do
 
@@ -16,9 +20,17 @@ Tool cards carry everything the timeline records: commands and their output, fil
 - Everyone on the link sees who is connected. In Paseo, the **Collab** pill turns into a green badge while a link is live and shows how many guests are connected (for example "Collab · 2"); its popover lists them by name.
 - Up to 8 guests can join one link at a time.
 
+## Where data goes
+
+- **To guests:** everything described above, encrypted end to end. The relay, `relay.paseo.sh` by default, forwards it without being able to read it.
+- **To the agent's provider:** a guest's prompt becomes a prompt to the agent, so it reaches the agent's model provider exactly as your own prompts do.
+- **Kept by the plugin:** links live only in the daemon's memory, so restarting the daemon or the plugin ends them. The plugin stores nothing on disk.
+- **Kept by the guest's browser:** the name a guest chooses, in that tab's session storage, so a reload keeps it.
+- **Connections made:** your daemon connects to the relay while a link is live. A guest's browser loads the page from `bendavid.github.io` and connects to the relay. The plugin sends no analytics and downloads nothing while running.
+
 ## Limits
 
 - Anyone holding the full link can join until you stop it. Stopping the link, the plugin, or the daemon disconnects every guest. After 20 failed join attempts the link stops itself.
-- GitHub Pages serves the page's code, built from a tagged commit shown in the page's header. GitHub cannot read the conversation without changing that code, but a compromised or compelled host could.
+- GitHub Pages serves the page's code, built by the repository's public workflow from the commit shown in the page's header. GitHub cannot read the conversation without changing that code, but a compromised or compelled host could.
 - The relay sees connection metadata: when guests connect, their IP addresses, and traffic volume.
 - Guests can join wherever both GitHub Pages and the Paseo relay are reachable.

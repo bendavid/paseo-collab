@@ -110,6 +110,10 @@ body,
   font-family: var(--mono);
 }
 
+.build a {
+  color: inherit;
+}
+
 .connection {
   font-size: 12px;
   padding: 2px 8px;

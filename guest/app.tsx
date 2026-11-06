@@ -126,8 +126,11 @@ export function App({
           <div className="connection" data-state={connection.kind}>
             {connection.text}
           </div>
-          <div className="build" title="The commit this page was built from">
-            page {GUEST_BUILD}
+          <div className="build">
+            <span title="The commit this page was built from">page {GUEST_BUILD}</span> ·{" "}
+            <a href="./third-party-licenses.txt" target="_blank" rel="noopener noreferrer">
+              licenses
+            </a>
           </div>
         </div>
       </header>

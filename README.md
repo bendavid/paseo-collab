@@ -6,6 +6,16 @@ Share a Paseo agent with a one-off, end-to-end encrypted browser link through th
 | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
 | ![The Collab popover in Paseo, with two guests connected](assets/app-light.png) | ![The guest page, showing the shared conversation](assets/guest-light.png) |
 
+## Install
+
+Requires Paseo 0.15.2 or later on the daemon host, with npm on the daemon's command path. Install from this repository:
+
+```bash
+paseo plugin add git:bendavid/paseo-collab
+```
+
+Plugins run only while `pluginsEnabled` is `true` in the daemon's `config.json` (see Paseo's [plugin docs](https://paseo.sh/docs/plugins)). Then open an agent and use the **Collab** pill above its composer.
+
 ## How it works
 
 ```
@@ -52,6 +62,10 @@ The page accepts plain `ws://` relays only on `localhost` and `127.0.0.1`.
 `.github/workflows/pages.yml` builds `site/` and deploys it to GitHub Pages when a `v*` tag is pushed. Enable Pages with **Source: GitHub Actions** in the repository settings. The page shows the commit it was built from.
 
 The page and the plugin agree on `GUEST_PROTOCOL_VERSION` (`shared/guest-version.ts`). Bump it on incompatible changes to the messages, and publish the page before releasing the plugin.
+
+## Licenses
+
+The plugin is MIT licensed. The guest page bundles about 200 open-source packages; their license texts are generated at build time and published beside the page as [`third-party-licenses.txt`](https://bendavid.github.io/paseo-collab/third-party-licenses.txt). See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Development
 
