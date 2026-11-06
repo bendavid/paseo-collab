@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["react", "react-dom"]
+  },
+  "include": [
+    "guest/**/*.ts",
+    "guest/**/*.tsx",
+    "shared/guest-protocol.ts",
+    "shared/guest-version.ts"
+  ],
+  "exclude": ["node_modules"]
+}

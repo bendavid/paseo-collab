@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!--
+      GitHub Pages cannot send headers, so the policy lives here. The page runs only its own
+      script and connects only to secure WebSockets (the relay named in the link); plain ws: is
+      allowed for local development only, enforced again by the page's link parser.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src wss: ws://127.0.0.1:* ws://localhost:*; img-src 'self' data:; base-uri 'none'; form-action 'none'"
+    />
+    <meta name="referrer" content="no-referrer" />
+    <link rel="icon" href="data:," />
+    <title>Shared Paseo agent</title>
+    <link rel="stylesheet" href="./guest.css" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script src="./guest.js"></script>
+  </body>
+</html>

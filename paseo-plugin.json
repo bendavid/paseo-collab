@@ -1,0 +1,9 @@
+{
+  "id": "collab-link",
+  "name": "Collaboration link",
+  "description": "Share an agent with a one-off, end-to-end encrypted browser link through the Paseo relay.",
+  "requirements": {
+    "paseo": ">=0.15.2"
+  },
+  "build": [["npm", "ci", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund"]]
+}

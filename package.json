@@ -1,0 +1,49 @@
+{
+  "name": "paseo-collab-link",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Share a Paseo agent with a one-off, end-to-end encrypted browser link through the Paseo relay.",
+  "license": "MIT",
+  "type": "module",
+  "files": [
+    "paseo-plugin.json",
+    "OVERVIEW.md",
+    "index.client.tsx",
+    "index.server.ts",
+    "client/",
+    "server/",
+    "shared/"
+  ],
+  "scripts": {
+    "build:guest": "node scripts/build-guest.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.server.json && tsc --noEmit -p tsconfig.guest.json",
+    "test": "vitest run",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "@getpaseo/protocol": "0.15.2",
+    "@getpaseo/relay": "0.15.2",
+    "ws": "^8.22.1"
+  },
+  "devDependencies": {
+    "@assistant-ui/react": "^0.15.32",
+    "@assistant-ui/react-markdown": "^0.14.24",
+    "@getpaseo/highlight": "^0.15.2",
+    "@getpaseo/plugin": "0.15.2",
+    "@tanstack/react-query": "^5.90.11",
+    "@types/node": "^22.20.5",
+    "@types/react": "~19.2.0",
+    "@types/react-dom": "~19.2.0",
+    "@types/ws": "^8.18.2",
+    "esbuild": "^0.27.7",
+    "prettier": "^3.9.10",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-native": "0.81.5",
+    "remark-gfm": "^4.0.1",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7",
+    "zod": "^4.4.3"
+  }
+}
