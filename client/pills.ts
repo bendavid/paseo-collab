@@ -1,7 +1,7 @@
 import type { PluginButtonRegistration, PluginClientContext } from "@getpaseo/plugin/client";
 import { SharePopover } from "./share-popover";
 
-/** Adds a Share pill to every agent's composer, following the agent directory. */
+/** Adds a Collab pill to every agent's composer, following the agent directory. */
 export function addSharePills(client: PluginClientContext): () => void {
   const pills = new Map<string, PluginButtonRegistration>();
   const lifetime = new AbortController();
@@ -15,9 +15,9 @@ export function addSharePills(client: PluginClientContext): () => void {
         workspaceId: agent.workspaceId,
         agentId: agent.id,
         button: {
-          title: "Share with a link",
+          title: "Collaborate through a link",
           icon: "Share2",
-          label: "Share",
+          label: "Collab",
           behavior: { kind: "popover", Content: SharePopover },
         },
       }),

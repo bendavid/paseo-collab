@@ -28,7 +28,7 @@ Each link gets a fresh relay endpoint id (`srv_…`), X25519 key pair, and 32-by
 | `server/guest-projection.ts` | The guest view of each timeline item and tool call, within relay message limits |
 | `server/guest-envelope.ts`   | Wraps guest prompts with their sender, escaping guest text                      |
 | `guest/`                     | The static page: React with assistant-ui, built into `site/`                    |
-| `client/`                    | The composer **Share** pill and its popover                                     |
+| `client/`                    | The composer **Collab** pill and its popover                                    |
 | `shared/guest-protocol.ts`   | Messages inside the encrypted channel                                           |
 
 `server/relay-endpoint.ts` follows Paseo's internal relay protocol (`packages/server/src/server/relay-transport.ts` in Paseo). Check it against that file when Paseo changes its relay.

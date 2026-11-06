@@ -1,4 +1,4 @@
-Share one agent with someone through a browser link. A **Share** pill on each agent's composer creates a one-off public link. The guest opens it in any browser, with no Paseo app or account. They watch the conversation live and, if you allow it, send prompts to the agent.
+Share one agent with someone through a browser link. A **Collab** pill on each agent's composer creates a one-off public link. The guest opens it in any browser, with no Paseo app or account. They watch the conversation live and, if you allow it, send prompts to the agent.
 
 The guest page is a static site on GitHub Pages, and the conversation travels through the Paseo relay, the same service the Paseo app uses for remote access. Nothing needs installing or configuring. The conversation is end-to-end encrypted between your daemon and the guest's browser: the key and an access secret travel in the link's `#fragment`, which browsers never send to any server, so the relay forwards only ciphertext and the page's host never sees the conversation.
 
@@ -13,7 +13,7 @@ Tool cards carry everything the timeline records: commands and their output, fil
 - Guest prompts reach the agent labelled with the guest's name, with a note that the guest is not the session's owner. Your own prompts are not labelled. Guests see who sent each prompt. In Paseo, a guest prompt appears with its label text, because the app does not recognize the label.
 - A guest prompt sent while the agent is working joins the running turn instead of interrupting it. Providers that cannot do this (Claude, Codex, OpenCode, OMP, and Pi can) restart the turn with the prompt instead.
 - The prompt switch is fixed for the life of a link. Stop the link and create a new one to change it.
-- Everyone on the link sees who is connected, and the **Share** popover in Paseo lists the connected guests by name.
+- Everyone on the link sees who is connected, and the **Collab** popover in Paseo lists the connected guests by name.
 - Up to 8 guests can join one link at a time.
 
 ## Limits

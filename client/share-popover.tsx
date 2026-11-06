@@ -160,7 +160,7 @@ export function SharePopover(props: PluginButtonContentProps) {
 
   return (
     <View style={styles.body}>
-      <Text style={styles.title}>Share this agent</Text>
+      <Text style={styles.title}>Collaborate on this agent</Text>
       <Text style={styles.muted}>
         Creates a one-off link to a web page guests open in any browser. The conversation travels
         through the Paseo relay, end-to-end encrypted between this daemon and the guest's browser;
