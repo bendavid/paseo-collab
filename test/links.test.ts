@@ -72,6 +72,7 @@ describe("collaboration links through the relay", () => {
       agent: { title: "Fix the parser", provider: "claude", status: "idle", pendingApprovals: [] },
       allowPrompts: true,
       guestName: "Guest 1",
+      canRename: true,
     });
     expect(await guest.next((m) => m.type === "snapshot")).toEqual({
       type: "snapshot",
@@ -91,6 +92,46 @@ describe("collaboration links through the relay", () => {
       expect(seenByRelay).not.toContain(plaintext);
     }
     expect(manager.list("a1")[0]?.guests).toBe(1);
+  });
+
+  it("lets guests choose unique names that label their prompts", async () => {
+    await setup();
+    const agent = fakeFeed([]);
+    const link = await manager.create({ agentId: "a1", allowPrompts: true, feed: agent.feed });
+    const first = await connectGuest({ url: link.url });
+    const second = await connectGuest({ url: link.url });
+    await first.next((m) => m.type === "snapshot");
+    await second.next((m) => m.type === "snapshot");
+
+    await first.send({ type: "set_name", name: "  Ada\u0007 Lovelace " });
+    expect(await first.next((m) => m.type === "renamed")).toEqual({
+      type: "renamed",
+      guestName: "Ada Lovelace",
+    });
+    await second.send({ type: "set_name", name: "ada lovelace" });
+    expect(await second.next((m) => m.type === "renamed")).toEqual({
+      type: "renamed",
+      guestName: "ada lovelace 2",
+    });
+
+    await first.send({ type: "prompt", text: "hello" });
+    await second.send({ type: "prompt", text: "hi" });
+    await expect
+      .poll(() => agent.prompts)
+      .toEqual([
+        { text: "hello", sender: "Ada Lovelace" },
+        { text: "hi", sender: "ada lovelace 2" },
+      ]);
+
+    // A name is free again once its guest leaves.
+    first.close();
+    await expect.poll(() => manager.list()[0]?.guests).toBe(1);
+    const third = await connectGuest({ url: link.url });
+    await third.next((m) => m.type === "snapshot");
+    await third.send({ type: "set_name", name: "Ada Lovelace" });
+    expect(await third.next((m) => m.type === "renamed")).toMatchObject({
+      guestName: "Ada Lovelace",
+    });
   });
 
   it("refuses prompts on a view-only link", async () => {

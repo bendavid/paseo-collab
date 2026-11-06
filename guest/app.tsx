@@ -9,6 +9,7 @@ import {
 } from "@assistant-ui/react";
 import { useMemo } from "react";
 import { GUEST_BUILD } from "./build-info";
+import { NameDialog } from "./name-dialog";
 import type { GuestSessionState } from "./session";
 import { toThreadMessages } from "./convert";
 import { MarkdownText, Notice, Reasoning, TodoList, ToolCard, UserText } from "./parts";
@@ -67,9 +68,11 @@ function connectionLabel(state: GuestSessionState): { text: string; kind: string
 export function App({
   state,
   sendPrompt,
+  setName,
 }: {
   state: GuestSessionState;
   sendPrompt(text: string): Promise<void>;
+  setName(name: string): Promise<void>;
 }) {
   const running = state.status === "running";
   const messages = useMemo(
@@ -132,6 +135,9 @@ export function App({
           </ComposerPrimitive.Root>
         ) : null}
       </ThreadPrimitive.Root>
+      {state.askingName && state.guestName && state.connection.status === "secure" ? (
+        <NameDialog defaultName={state.guestName} onSubmit={(name) => void setName(name)} />
+      ) : null}
     </AssistantRuntimeProvider>
   );
 }

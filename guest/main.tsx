@@ -7,8 +7,8 @@ import { readInvitation } from "./timeline";
 const invitation = readInvitation(location.hash);
 
 function Root() {
-  const { state, sendPrompt } = useGuestSession(invitation);
-  return <App state={state} sendPrompt={sendPrompt} />;
+  const { state, sendPrompt, setName } = useGuestSession(invitation);
+  return <App state={state} sendPrompt={sendPrompt} setName={setName} />;
 }
 
 const container = document.getElementById("root");

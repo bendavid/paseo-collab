@@ -1,6 +1,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { exportPublicKey, generateKeyPair, type KeyPair } from "@getpaseo/relay/e2ee";
 import { GUEST_PROTOCOL_VERSION } from "../shared/guest-version";
+import { uniqueGuestName } from "../shared/guest-name";
 import type { Link } from "../shared/links";
 import type { AgentFeed } from "./agent-feed";
 import { CLOSE_LINK_STOPPED, type GuestSession, startGuestSession } from "./guest-session";
@@ -23,6 +24,8 @@ interface ActiveLink {
   link: Omit<Link, "guests">;
   endpoint: RelayEndpoint;
   sessions: Set<GuestSession>;
+  /** Current name of each connected guest, kept unique. */
+  names: Set<{ name: string }>;
   guests: number;
   /** Numbers guest connections; a reconnecting guest gets a new number. */
   connections: number;
@@ -118,12 +121,22 @@ export class LinkManager {
         if (!active || active.stopping) return transport.close(CLOSE_LINK_STOPPED, "link stopped");
         if (active.sessions.size >= MAX_GUESTS) return transport.close(4429, "too many guests");
         const owner = active;
+        const slot = { name: `Guest ${++owner.connections}` };
+        owner.names.add(slot);
         const session = startGuestSession({
           transport,
           keyPair,
           secret,
           allowPrompts: options.allowPrompts,
-          guestName: `Guest ${++owner.connections}`,
+          guestName: slot.name,
+          claimName: (requested) => {
+            const others = [...owner.names].filter((other) => other !== slot);
+            slot.name = uniqueGuestName(
+              requested,
+              others.map((other) => other.name),
+            );
+            return slot.name;
+          },
           feed: options.feed,
           onAuthenticated: () => {
             owner.guests += 1;
@@ -134,6 +147,7 @@ export class LinkManager {
           },
           onClosed: (authenticated) => {
             owner.sessions.delete(session);
+            owner.names.delete(slot);
             if (authenticated) owner.guests -= 1;
           },
         });
@@ -157,6 +171,7 @@ export class LinkManager {
       },
       endpoint,
       sessions: new Set(),
+      names: new Set(),
       guests: 0,
       connections: 0,
       rejections: 0,

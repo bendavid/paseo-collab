@@ -9,6 +9,8 @@ export const MAX_PROMPT_LENGTH = 20_000;
 export const GuestInboundSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("hello"), secret: z.string().min(1).max(256) }),
   z.object({ type: z.literal("prompt"), text: z.string().trim().min(1).max(MAX_PROMPT_LENGTH) }),
+  /** Only sent to plugins whose welcome says `canRename`; older plugins reject unknown messages. */
+  z.object({ type: z.literal("set_name"), name: z.string().max(200) }),
 ]);
 
 export type GuestInbound = z.input<typeof GuestInboundSchema>;
@@ -115,7 +117,11 @@ export type GuestOutbound =
       allowPrompts: boolean;
       /** How this guest's prompts are labelled for the agent and other guests. */
       guestName: string;
+      /** The plugin accepts `set_name`. Absent from plugins before 0.3.0. */
+      canRename?: boolean;
     }
+  /** The name the host accepted, possibly numbered to keep names unique on the link. */
+  | { type: "renamed"; guestName: string }
   /** Replaces the guest's timeline. Large snapshots continue in `snapshot_more` messages. */
   | { type: "snapshot"; items: GuestItem[] }
   | { type: "snapshot_more"; items: GuestItem[] }

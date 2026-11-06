@@ -1,7 +1,7 @@
 {
   "name": "paseo-collab-link",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Share a Paseo agent with a one-off, end-to-end encrypted browser link through the Paseo relay.",
   "license": "MIT",
   "type": "module",

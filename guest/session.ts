@@ -17,11 +17,14 @@ export interface GuestSessionState {
   pendingApprovals: string[];
   /** This guest's own name, so its prompts can read as "You". */
   guestName: string | null;
+  /** Whether the page is asking the guest for a name. */
+  askingName: boolean;
   notice: string | null;
 }
 
 type Action =
   | { type: "message"; message: GuestOutbound }
+  | { type: "ask_name"; asking: boolean }
   | { type: "connection"; connection: ConnectionState }
   | { type: "notice"; notice: string | null };
 
@@ -33,6 +36,7 @@ export const initialSessionState: GuestSessionState = {
   allowPrompts: false,
   pendingApprovals: [],
   guestName: null,
+  askingName: false,
   notice: null,
 };
 
@@ -46,6 +50,8 @@ export function sessionReducer(state: GuestSessionState, action: Action): GuestS
       };
     case "notice":
       return { ...state, notice: action.notice };
+    case "ask_name":
+      return { ...state, askingName: action.asking };
     case "message": {
       const message = action.message;
       switch (message.type) {
@@ -66,6 +72,8 @@ export function sessionReducer(state: GuestSessionState, action: Action): GuestS
           return { ...state, items: applyItem(state.items, message.item) };
         case "status":
           return { ...state, status: message.status };
+        case "renamed":
+          return { ...state, guestName: message.guestName };
         case "approval": {
           const others = state.pendingApprovals.filter((id) => id !== message.requestId);
           return {
@@ -90,11 +98,20 @@ export function useGuestSession(result: InvitationResult) {
       : { ...initialSessionState, connection: { status: "ended", reason: result.reason } },
   );
   const connection = useRef<GuestConnection | null>(null);
+  const nameKey = invitation ? `paseo-collab-name:${invitation.serverId}` : null;
 
   useEffect(() => {
     if (!invitation) return;
     const created = new GuestConnection(invitation, {
-      onMessage: (message) => dispatch({ type: "message", message }),
+      onMessage: (message) => {
+        if (message.type === "renamed" && nameKey) storeName(nameKey, message.guestName);
+        dispatch({ type: "message", message });
+        // Plugins before 0.3.0 cannot rename and reject the message, so only ask when offered.
+        if (message.type !== "welcome" || !message.canRename) return;
+        const remembered = nameKey ? readName(nameKey) : null;
+        if (remembered) void created.send({ type: "set_name", name: remembered }).catch(() => {});
+        else dispatch({ type: "ask_name", asking: true });
+      },
       onState: (next) => dispatch({ type: "connection", connection: next }),
     });
     connection.current = created;
@@ -113,5 +130,27 @@ export function useGuestSession(result: InvitationResult) {
     }
   }, []);
 
-  return { state, sendPrompt };
+  const setName = useCallback(async (name: string) => {
+    dispatch({ type: "ask_name", asking: false });
+    await connection.current?.send({ type: "set_name", name }).catch(() => {});
+  }, []);
+
+  return { state, sendPrompt, setName };
+}
+
+/** The name chosen for this link, kept for reconnects and reloads in this tab. */
+function readName(key: string): string | null {
+  try {
+    return sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function storeName(key: string, name: string): void {
+  try {
+    sessionStorage.setItem(key, name);
+  } catch {
+    // Storage unavailable: the guest is asked again after a reload.
+  }
 }

@@ -6,6 +6,7 @@ import {
   type GuestItem,
   type GuestOutbound,
 } from "../shared/guest-protocol";
+import { normalizeGuestName } from "../shared/guest-name";
 import type { AgentFeed, FeedEvent } from "./agent-feed";
 
 /** A guest must complete the handshake and present the secret within this window. */
@@ -25,8 +26,10 @@ export interface GuestSessionOptions {
   keyPair: KeyPair;
   secret: string;
   allowPrompts: boolean;
-  /** Assigned by the link; guests cannot choose it. */
+  /** The link's default name for this guest, until the guest picks one. */
   guestName: string;
+  /** Returns the name the guest gets for `requested`, unique among the link's guests. */
+  claimName(requested: string): string;
   feed: AgentFeed;
   onAuthenticated(): void;
   onRejected(reason: "handshake" | "secret"): void;
@@ -76,6 +79,7 @@ function parseInbound(data: string | ArrayBuffer): GuestInbound | null {
 export function startGuestSession(options: GuestSessionOptions): GuestSession {
   let authenticated = false;
   let closed = false;
+  let guestName = options.guestName;
   /** The transport already went away, so there is no one left to notify. */
   let transportGone = false;
   let releaseFeed: (() => void) | null = null;
@@ -146,7 +150,8 @@ export function startGuestSession(options: GuestSessionOptions): GuestSession {
         type: "welcome",
         agent,
         allowPrompts: options.allowPrompts,
-        guestName: options.guestName,
+        guestName,
+        canRename: true,
       });
       const [first = [], ...rest] = snapshotBatches(items);
       send({ type: "snapshot", items: first });
@@ -189,12 +194,17 @@ export function startGuestSession(options: GuestSessionOptions): GuestSession {
       }
       return admit();
     }
+    if (message.type === "set_name") {
+      const requested = normalizeGuestName(message.name);
+      if (requested) guestName = options.claimName(requested);
+      return send({ type: "renamed", guestName });
+    }
     if (message.type !== "prompt") return close(CLOSE_PROTOCOL, "unexpected message");
     if (!options.allowPrompts) {
       return send({ type: "prompt_rejected", reason: "This link is view-only." });
     }
     try {
-      await options.feed.send(message.text, options.guestName);
+      await options.feed.send(message.text, guestName);
     } catch (error) {
       send({
         type: "prompt_rejected",
