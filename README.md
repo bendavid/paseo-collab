@@ -2,6 +2,10 @@
 
 Share a Paseo agent with a one-off, end-to-end encrypted browser link through the Paseo relay. See [OVERVIEW.md](OVERVIEW.md) for what users get.
 
+| In Paseo                                                                        | The guest's browser                                                        |
+| ------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| ![The Collab popover in Paseo, with two guests connected](assets/app-light.png) | ![The guest page, showing the shared conversation](assets/guest-light.png) |
+
 ## How it works
 
 ```

@@ -20,7 +20,8 @@
     "index.server.ts",
     "client/",
     "server/",
-    "shared/"
+    "shared/",
+    "assets/"
   ],
   "scripts": {
     "build:guest": "node scripts/build-guest.mjs",

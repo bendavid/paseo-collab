@@ -2,6 +2,12 @@
   "id": "collab",
   "name": "Collab",
   "description": "Share an agent live with anyone through an end-to-end encrypted browser link: they watch, and can prompt if you allow it.",
+  "media": [
+    "assets/app-light.png",
+    "assets/guest-light.png",
+    "assets/app-dark.png",
+    "assets/guest-dark.png"
+  ],
   "requirements": {
     "paseo": ">=0.15.2"
   },
