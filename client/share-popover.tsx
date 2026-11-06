@@ -60,15 +60,15 @@ export function SharePopover(props: PluginButtonContentProps) {
         overflow: "hidden" as const,
       },
       danger: { color: theme.colors.statusDanger, fontSize: 13 },
-      url: {
-        color: theme.colors.foreground,
-        fontSize: 12,
+      // The line limit clips the text element itself, so the box padding lives on a wrapper.
+      urlBox: {
         padding: 8,
         borderRadius: 6,
         borderWidth: 1,
         borderColor: theme.colors.border,
         backgroundColor: theme.colors.surface1,
       },
+      url: { color: theme.colors.foreground, fontSize: 12 },
       row: { flexDirection: "row" as const, gap: 8, flexWrap: "wrap" as const },
       toggle: {
         flexDirection: "row" as const,
@@ -114,9 +114,11 @@ export function SharePopover(props: PluginButtonContentProps) {
     return (
       <View style={styles.body}>
         <Text style={styles.title}>Shared with a link</Text>
-        <Text style={styles.url} selectable numberOfLines={3}>
-          {link.url}
-        </Text>
+        <View style={styles.urlBox}>
+          <Text style={styles.url} selectable numberOfLines={3}>
+            {link.url}
+          </Text>
+        </View>
         <Text style={styles.muted}>
           {guestLabel(link)} · {link.allowPrompts ? "Guests can send prompts" : "View only"}
         </Text>

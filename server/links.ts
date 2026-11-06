@@ -14,7 +14,7 @@ const MAX_REJECTIONS = 20;
 
 export interface LinkManagerOptions {
   relay: RelayAddress;
-  /** The static guest page, e.g. https://you.github.io/paseo-collab-link/ */
+  /** The static guest page, e.g. https://you.github.io/paseo-collab/ */
   guestPageUrl: string;
   /** How long link creation waits for the relay to accept the registration. */
   registrationTimeoutMs?: number;

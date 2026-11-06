@@ -5,7 +5,7 @@ import { LinkManager } from "./server/links";
 import { createLinkRpc, listLinksRpc, stopLinkRpc } from "./shared/links";
 
 /** Where guests load the page. It holds no session data; the link's fragment carries that. */
-const DEFAULT_GUEST_PAGE_URL = "https://bendavid.github.io/paseo-collab-link/";
+const DEFAULT_GUEST_PAGE_URL = "https://bendavid.github.io/paseo-collab/";
 
 export default function contribute(server: PluginServerContext) {
   // Overrides for a self-hosted relay or page, and for development.

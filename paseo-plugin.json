@@ -1,7 +1,7 @@
 {
-  "id": "collab-link",
-  "name": "Collaboration link",
-  "description": "Share an agent with a one-off, end-to-end encrypted browser link through the Paseo relay.",
+  "id": "collab",
+  "name": "Collab",
+  "description": "Share an agent live with anyone through an end-to-end encrypted browser link: they watch, and can prompt if you allow it.",
   "requirements": {
     "paseo": ">=0.15.2"
   },

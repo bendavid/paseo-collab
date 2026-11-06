@@ -35,14 +35,14 @@ describe("guest timeline", () => {
   it("recovers the relay, endpoint id, key, and secret from the link fragment", () => {
     const keyPair = generateKeyPair();
     const url = invitationUrl({
-      guestPageUrl: "https://you.github.io/paseo-collab-link/",
+      guestPageUrl: "https://you.github.io/paseo-collab/",
       relay: { endpoint: "relay.paseo.sh:443", useTls: true },
       serverId: "srv_abc",
       keyPair,
       secret: "s3cr3t_-",
     });
 
-    expect(url.startsWith("https://you.github.io/paseo-collab-link/#")).toBe(true);
+    expect(url.startsWith("https://you.github.io/paseo-collab/#")).toBe(true);
     expect(readInvitation(new URL(url).hash)).toEqual({
       ok: true,
       invitation: {

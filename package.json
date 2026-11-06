@@ -1,8 +1,16 @@
 {
-  "name": "paseo-collab-link",
+  "name": "paseo-collab",
   "private": true,
-  "version": "0.4.0",
-  "description": "Share a Paseo agent with a one-off, end-to-end encrypted browser link through the Paseo relay.",
+  "version": "0.5.0",
+  "description": "Share a Paseo agent live through an end-to-end encrypted browser link.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bendavid/paseo-collab.git"
+  },
+  "homepage": "https://github.com/bendavid/paseo-collab#readme",
+  "bugs": {
+    "url": "https://github.com/bendavid/paseo-collab/issues"
+  },
   "license": "MIT",
   "type": "module",
   "files": [

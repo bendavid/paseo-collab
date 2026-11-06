@@ -1,4 +1,4 @@
-# Paseo collaboration link (prototype)
+# Paseo Collab
 
 Share a Paseo agent with a one-off, end-to-end encrypted browser link through the Paseo relay. See [OVERVIEW.md](OVERVIEW.md) for what users get.
 
@@ -35,11 +35,11 @@ Each link gets a fresh relay endpoint id (`srv_…`), X25519 key pair, and 32-by
 
 ## Configuration
 
-| Variable (daemon environment) | Default                                         |
-| ----------------------------- | ----------------------------------------------- |
-| `PASEO_COLLAB_RELAY`          | `relay.paseo.sh:443`                            |
-| `PASEO_COLLAB_RELAY_TLS`      | on; `0` for a local relay                       |
-| `PASEO_COLLAB_GUEST_PAGE`     | `https://bendavid.github.io/paseo-collab-link/` |
+| Variable (daemon environment) | Default                                    |
+| ----------------------------- | ------------------------------------------ |
+| `PASEO_COLLAB_RELAY`          | `relay.paseo.sh:443`                       |
+| `PASEO_COLLAB_RELAY_TLS`      | on; `0` for a local relay                  |
+| `PASEO_COLLAB_GUEST_PAGE`     | `https://bendavid.github.io/paseo-collab/` |
 
 The page accepts plain `ws://` relays only on `localhost` and `127.0.0.1`.
 
