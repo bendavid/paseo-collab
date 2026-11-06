@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import type { AgentFeed, FeedEvent } from "../server/agent-feed";
+import type { AgentFeed, FeedEvent, TimelinePosition } from "../server/agent-feed";
 import { snapshotBatches } from "../server/guest-session";
 import { LinkManager } from "../server/links";
 import type { GuestItem } from "../shared/guest-protocol";
@@ -7,7 +7,10 @@ import { type FakeRelay, startFakeRelay } from "./fake-relay";
 import { connectGuest } from "./guest-client";
 
 /** Stands in for an agent: fixed history, live events on demand, prompts recorded. */
-function fakeFeed(history: GuestItem[]) {
+function fakeFeed(
+  history: GuestItem[],
+  options: { through?: TimelinePosition; whileReading?: () => void } = {},
+) {
   const listeners = new Set<(event: FeedEvent) => void>();
   const prompts: { text: string; sender: string }[] = [];
   const feed: AgentFeed = {
@@ -17,7 +20,10 @@ function fakeFeed(history: GuestItem[]) {
       status: "idle",
       pendingApprovals: [],
     }),
-    history: async () => history,
+    history: async () => {
+      options.whileReading?.();
+      return { items: history, through: options.through ?? null };
+    },
     subscribe: async (listener) => {
       listeners.add(listener);
       return () => listeners.delete(listener);
@@ -179,6 +185,57 @@ describe("collaboration links through the relay", () => {
     await intruder.closed;
     expect(manager.list("a1")[0]?.participants).toEqual(["Guest 1"]);
     expect(guest.messages.filter((m) => m.type === "participants")).toHaveLength(1);
+  });
+
+  it("does not repeat rows that arrive while a joining guest's history is read", async () => {
+    await setup();
+    let emit: (event: FeedEvent) => void = () => {};
+    const agent = fakeFeed(
+      [
+        { type: "user_message", text: "go" },
+        { type: "assistant_message", text: "Hello wor" },
+      ],
+      {
+        through: { epoch: "e1", seq: 7 },
+        // The reply streams on while the history is read: one chunk the read already caught,
+        // and one it did not.
+        whileReading: () => {
+          emit({
+            type: "item",
+            item: { type: "assistant_message", text: "wor" },
+            position: { epoch: "e1", seq: 7 },
+          });
+          emit({
+            type: "item",
+            item: { type: "assistant_message", text: "ld" },
+            position: { epoch: "e1", seq: 8 },
+          });
+        },
+      },
+    );
+    emit = agent.emit;
+    const link = await manager.create({ agentId: "a1", allowPrompts: true, feed: agent.feed });
+
+    const guest = await connectGuest({ url: link.url });
+    await guest.next((m) => m.type === "item");
+    agent.emit({
+      type: "item",
+      item: { type: "assistant_message", text: "!" },
+      position: { epoch: "e1", seq: 9 },
+    });
+    await expect.poll(() => guest.messages.filter((m) => m.type === "item").length).toBe(2);
+
+    expect(guest.messages.filter((m) => m.type === "snapshot" || m.type === "item")).toEqual([
+      {
+        type: "snapshot",
+        items: [
+          { type: "user_message", text: "go" },
+          { type: "assistant_message", text: "Hello wor" },
+        ],
+      },
+      { type: "item", item: { type: "assistant_message", text: "ld" } },
+      { type: "item", item: { type: "assistant_message", text: "!" } },
+    ]);
   });
 
   it("refuses prompts on a view-only link", async () => {

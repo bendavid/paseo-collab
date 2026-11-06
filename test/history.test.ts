@@ -20,7 +20,7 @@ function pagedTimeline(rows: TimelineItem[], epochs: () => string) {
       error: null,
       hasOlder: start > 0,
       startCursor: { epoch, seq: start },
-      entries: rows.slice(start, end).map((item) => ({ item })),
+      entries: rows.slice(start, end).map((item, i) => ({ item, seqEnd: start + i })),
     };
   }) as unknown as Refetch;
   return { agent: { timeline: { refetch } } as Parameters<typeof readWholeTimeline>[0], calls };
@@ -37,7 +37,10 @@ describe("full history for late joiners", () => {
     const all = rows(1_200);
     const { agent, calls } = pagedTimeline(all, () => "e1");
 
-    expect(await readWholeTimeline(agent)).toEqual(all);
+    expect(await readWholeTimeline(agent)).toEqual({
+      items: all,
+      through: { epoch: "e1", seq: 1_199 },
+    });
     expect(calls).toEqual([
       { direction: "tail", seq: undefined },
       { direction: "before", seq: 700 },
@@ -49,11 +52,16 @@ describe("full history for late joiners", () => {
     const all = rows(800);
     let reads = 0;
     const settles = pagedTimeline(all, () => (++reads === 2 ? "e2" : reads < 2 ? "e1" : "e3"));
-    expect(await readWholeTimeline(settles.agent)).toEqual(all);
+    expect((await readWholeTimeline(settles.agent)).items).toEqual(all);
 
     let flips = 0;
     const churns = pagedTimeline(all, () => `e${++flips}`);
     await expect(readWholeTimeline(churns.agent)).rejects.toBeInstanceOf(TimelineChangedError);
+  });
+
+  it("reports no position for an empty timeline", async () => {
+    const { agent } = pagedTimeline([], () => "e1");
+    expect(await readWholeTimeline(agent)).toEqual({ items: [], through: null });
   });
 
   it("joins a reply or tool call that a page boundary split", () => {

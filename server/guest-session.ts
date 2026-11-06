@@ -7,7 +7,7 @@ import {
   type GuestOutbound,
 } from "../shared/guest-protocol";
 import { normalizeGuestName } from "../shared/guest-name";
-import type { AgentFeed, FeedEvent } from "./agent-feed";
+import type { AgentFeed, FeedEvent, TimelinePosition } from "./agent-feed";
 
 /** A guest must complete the handshake and present the secret within this window. */
 const HELLO_TIMEOUT_MS = 15_000;
@@ -87,6 +87,8 @@ export function startGuestSession(options: GuestSessionOptions): GuestSession {
   let releaseFeed: (() => void) | null = null;
   // Live events that arrive while the snapshot is being read are replayed after it.
   let pending: FeedEvent[] | null = null;
+  /** The newest row the last snapshot covered; live rows up to it are already on the page. */
+  let snapshotThrough: TimelinePosition | null = null;
 
   const helloTimer = setTimeout(
     () => void close(CLOSE_UNAUTHORIZED, "hello timeout"),
@@ -124,10 +126,20 @@ export function startGuestSession(options: GuestSessionOptions): GuestSession {
       .catch(() => close(CLOSE_PROTOCOL, "send failed"));
   }
 
+  /** True for a live row the snapshot already included. */
+  function inSnapshot(position: TimelinePosition | undefined): boolean {
+    return (
+      position !== undefined &&
+      snapshotThrough !== null &&
+      position.epoch === snapshotThrough.epoch &&
+      position.seq <= snapshotThrough.seq
+    );
+  }
+
   function deliver(event: FeedEvent): void {
     switch (event.type) {
       case "item":
-        send({ type: "item", item: event.item });
+        if (!inSnapshot(event.position)) send({ type: "item", item: event.item });
         return;
       case "status":
         send({ type: "status", status: event.status });
@@ -147,7 +159,9 @@ export function startGuestSession(options: GuestSessionOptions): GuestSession {
   async function sendSnapshot(): Promise<void> {
     pending = [];
     try {
-      const [agent, items] = await Promise.all([options.feed.describe(), options.feed.history()]);
+      const [agent, history] = await Promise.all([options.feed.describe(), options.feed.history()]);
+      const { items } = history;
+      snapshotThrough = history.through;
       send({
         type: "welcome",
         agent,

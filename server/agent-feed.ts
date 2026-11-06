@@ -17,8 +17,22 @@ const HISTORY_PAGE_SIZE = 500;
 /** Attempts to read history in one epoch before giving up. */
 const HISTORY_ATTEMPTS = 3;
 
+/** A place in the agent's timeline: its version (epoch) and a row's sequence number. */
+export interface TimelinePosition {
+  epoch: string;
+  seq: number;
+}
+
+/** The guest view of the timeline, and the newest row it covers. */
+export interface HistorySnapshot {
+  items: GuestItem[];
+  /** Null for an empty timeline: every live row is newer. */
+  through: TimelinePosition | null;
+}
+
 export type FeedEvent =
-  | { type: "item"; item: GuestItem }
+  /** `position` lets a session skip rows its snapshot already holds. */
+  | { type: "item"; item: GuestItem; position?: TimelinePosition }
   | { type: "status"; status: GuestAgentStatus }
   | { type: "approval"; requestId: string; pending: boolean }
   /** History the guest holds is no longer valid; send a fresh snapshot. */
@@ -28,7 +42,7 @@ export type FeedEvent =
 /** What a guest session needs from one agent. Tests substitute their own. */
 export interface AgentFeed {
   describe(): Promise<GuestAgent>;
-  history(): Promise<GuestItem[]>;
+  history(): Promise<HistorySnapshot>;
   /** Resolves once live delivery is established. The returned function releases it. */
   subscribe(listener: (event: FeedEvent) => void): Promise<() => void>;
   /** Sends a guest's prompt, attributed to `sender`. */
@@ -48,7 +62,7 @@ export class TimelineChangedError extends Error {
  */
 export async function readWholeTimeline(
   agent: Pick<AgentHandle, "timeline">,
-): Promise<TimelineItem[]> {
+): Promise<{ items: TimelineItem[]; through: TimelinePosition | null }> {
   for (let attempt = 0; attempt < HISTORY_ATTEMPTS; attempt += 1) {
     let page = await agent.timeline.refetch({
       direction: "tail",
@@ -69,7 +83,13 @@ export async function readWholeTimeline(
       if (page.epoch !== epoch) break;
       pages.unshift(page.entries);
     }
-    if (page.epoch === epoch) return pages.flat().map(({ item }) => item);
+    if (page.epoch !== epoch) continue;
+    const entries = pages.flat();
+    const last = entries.reduce((max, entry) => Math.max(max, entry.seqEnd), -1);
+    return {
+      items: entries.map(({ item }) => item),
+      through: last >= 0 ? { epoch, seq: last } : null,
+    };
   }
   throw new TimelineChangedError();
 }
@@ -94,13 +114,23 @@ export function createPaseoAgentFeed(paseo: PaseoApi, agentId: string): AgentFee
     describe,
     async history() {
       if (!context.cwd) await describe();
-      const rows = await readWholeTimeline(agent);
-      return foldItems(rows.flatMap((item) => toGuestItem(item, context) ?? []));
+      const { items, through } = await readWholeTimeline(agent);
+      return {
+        items: foldItems(items.flatMap((item) => toGuestItem(item, context) ?? [])),
+        through,
+      };
     },
     async subscribe(listener) {
       const unsubscribe = agent.timeline.subscribe((update) => {
         const event = toFeedEvent(update.event, context);
-        if (event) listener(event);
+        if (!event) return;
+        const seq = "seq" in update ? update.seq : undefined;
+        const epoch = "epoch" in update ? update.epoch : undefined;
+        listener(
+          event.type === "item" && seq !== undefined && epoch !== undefined
+            ? { ...event, position: { epoch, seq } }
+            : event,
+        );
       });
       await unsubscribe.ready;
       return () => {

@@ -21,7 +21,7 @@ function fakeFeed(history: GuestItem[]) {
       status: "idle",
       pendingApprovals: [],
     }),
-    history: async () => history,
+    history: async () => ({ items: history, through: null }),
     subscribe: async (listener) => {
       listeners.add(listener);
       return () => listeners.delete(listener);
