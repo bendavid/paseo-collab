@@ -4,6 +4,7 @@ import { copyText, useToast } from "@getpaseo/plugin/client/ui";
 import { useMemo, useState } from "react";
 import { Pressable, Switch, Text, View } from "react-native";
 import { createLinkRpc, type Link, listLinksRpc, stopLinkRpc } from "../shared/links";
+import { notifyLinksChanged } from "./pill-state";
 import { openExternal } from "./web";
 
 const LIST_REFRESH_MS = 4_000;
@@ -34,11 +35,17 @@ export function SharePopover(props: PluginButtonContentProps) {
   });
   const create = useMutation({
     mutationFn: () => createLink({ agentId: agentId ?? "", allowPrompts }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+    onSuccess: () => {
+      notifyLinksChanged();
+      return queryClient.invalidateQueries({ queryKey });
+    },
   });
   const stop = useMutation({
     mutationFn: (linkId: string) => stopLink({ linkId }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+    onSuccess: () => {
+      notifyLinksChanged();
+      return queryClient.invalidateQueries({ queryKey });
+    },
   });
 
   const styles = useMemo(

@@ -13,7 +13,7 @@ Tool cards carry everything the timeline records: commands and their output, fil
 - Guest prompts reach the agent labelled with the guest's name, with a note that the guest is not the session's owner. Your own prompts are not labelled. Guests see who sent each prompt. In Paseo, a guest prompt appears with its label text, because the app does not recognize the label.
 - A guest prompt sent while the agent is working joins the running turn instead of interrupting it. Providers that cannot do this (Claude, Codex, OpenCode, OMP, and Pi can) restart the turn with the prompt instead.
 - The prompt switch is fixed for the life of a link. Stop the link and create a new one to change it.
-- Everyone on the link sees who is connected, and the **Collab** popover in Paseo lists the connected guests by name.
+- Everyone on the link sees who is connected. In Paseo, the **Collab** pill turns into a green badge while a link is live and shows how many guests are connected (for example "Collab · 2"); its popover lists them by name.
 - Up to 8 guests can join one link at a time.
 
 ## Limits

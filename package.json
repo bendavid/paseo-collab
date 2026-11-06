@@ -1,7 +1,7 @@
 {
   "name": "paseo-collab",
   "private": true,
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Share a Paseo agent live through an end-to-end encrypted browser link.",
   "repository": {
     "type": "git",
