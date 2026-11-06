@@ -13,7 +13,7 @@ import {
 } from "@getpaseo/highlight";
 import { type ReactNode, useMemo } from "react";
 import remarkGfm from "remark-gfm";
-import type { GuestDiff, GuestTool, GuestToolDetail } from "../shared/guest-protocol";
+import type { GuestLines, GuestTool, GuestToolDetail } from "../shared/guest-protocol";
 
 /** Longest code block the page highlights; longer blocks render plain. */
 const HIGHLIGHT_LIMIT = 40_000;
@@ -120,16 +120,44 @@ const STATUS_LABEL: Record<GuestTool["status"], string> = {
   canceled: "Canceled",
 };
 
-function DiffView({ diff, path }: { diff: GuestDiff; path: string }) {
-  if ("withheld" in diff) {
-    return (
-      <div className="tool-note">
-        {diff.withheld === "sensitive-file"
-          ? "Changes to this file are never shared."
-          : "The host did not share code changes."}
-      </div>
-    );
-  }
+function Withheld({ lines }: { lines: Extract<GuestLines, { withheld: string }> }) {
+  return (
+    <div className="tool-note">
+      {lines.withheld === "sensitive-file"
+        ? "The host's plugin does not share this file."
+        : "The host's plugin does not share code changes."}
+    </div>
+  );
+}
+
+/** Command output, a file excerpt, or search matches, highlighted when the file type is known. */
+function LinesView({
+  lines,
+  path,
+  truncatedLabel,
+}: {
+  lines: GuestLines;
+  path?: string;
+  truncatedLabel: string;
+}) {
+  if ("withheld" in lines) return <Withheld lines={lines} />;
+  if (lines.lines.length === 0) return <div className="tool-note">No output.</div>;
+  const code = lines.lines.join("\n");
+  return (
+    <pre className="output">
+      {lines.truncated && truncatedLabel.startsWith("Earlier") ? (
+        <div className="output-note">{truncatedLabel}</div>
+      ) : null}
+      {path ? <HighlightedCode code={code} fileName={path} /> : code}
+      {lines.truncated && !truncatedLabel.startsWith("Earlier") ? (
+        <div className="output-note">{truncatedLabel}</div>
+      ) : null}
+    </pre>
+  );
+}
+
+function DiffView({ diff, path }: { diff: GuestLines; path: string }) {
+  if ("withheld" in diff) return <Withheld lines={diff} />;
   const highlight = isLanguageSupported(path);
   return (
     <pre className="diff">
@@ -178,7 +206,9 @@ function DetailView({ detail }: { detail: GuestToolDetail }) {
           {detail.exitCode !== undefined && detail.exitCode !== null ? (
             <Row label="Exit code">{detail.exitCode}</Row>
           ) : null}
-          <div className="tool-note">Command output is not shared.</div>
+          {detail.output ? (
+            <LinesView lines={detail.output} truncatedLabel="Earlier output not shown" />
+          ) : null}
         </>
       );
     case "read":
@@ -190,6 +220,13 @@ function DetailView({ detail }: { detail: GuestToolDetail }) {
               {detail.offset ?? 1}
               {detail.limit !== undefined ? ` – ${(detail.offset ?? 1) + detail.limit - 1}` : "+"}
             </Row>
+          ) : null}
+          {detail.content ? (
+            <LinesView
+              lines={detail.content}
+              path={detail.path}
+              truncatedLabel="… more lines not shown"
+            />
           ) : null}
         </>
       );
@@ -225,6 +262,9 @@ function DetailView({ detail }: { detail: GuestToolDetail }) {
               ))}
             </ul>
           ) : null}
+          {detail.content ? (
+            <LinesView lines={detail.content} truncatedLabel="… more matches not shown" />
+          ) : null}
         </>
       );
     case "fetch":
@@ -237,6 +277,10 @@ function DetailView({ detail }: { detail: GuestToolDetail }) {
             </Row>
           ) : null}
           {detail.bytes !== undefined ? <Row label="Size">{detail.bytes} bytes</Row> : null}
+          {detail.prompt ? <Row label="Asked">{detail.prompt}</Row> : null}
+          {detail.result ? (
+            <LinesView lines={detail.result} truncatedLabel="… more not shown" />
+          ) : null}
         </>
       );
     case "task":
@@ -262,7 +306,25 @@ function DetailView({ detail }: { detail: GuestToolDetail }) {
         </>
       );
     case "other":
-      return <div className="tool-note">Details of this tool are not shared.</div>;
+      return (
+        <>
+          {detail.input ? (
+            <>
+              <div className="tool-row-label">Input</div>
+              <LinesView lines={detail.input} truncatedLabel="… more not shown" />
+            </>
+          ) : null}
+          {detail.output ? (
+            <>
+              <div className="tool-row-label">Output</div>
+              <LinesView lines={detail.output} truncatedLabel="… more not shown" />
+            </>
+          ) : null}
+          {!detail.input && !detail.output ? (
+            <div className="tool-note">No details recorded for this tool.</div>
+          ) : null}
+        </>
+      );
   }
 }
 

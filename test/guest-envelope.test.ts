@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { formatGuestPrompt, parseGuestPrompt } from "../server/guest-envelope";
 import { toGuestItem } from "../server/guest-projection";
 
-const context = { cwd: "/home/ada/shop", home: "/home/ada", includeCode: false };
+const context = { cwd: "/home/ada/shop", home: "/home/ada" };
 
 describe("guest prompt envelope", () => {
   it("names the guest and tells the agent it is not the owner", () => {

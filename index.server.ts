@@ -15,11 +15,11 @@ export default function contribute(server: PluginServerContext) {
     guestPageUrl: process.env.PASEO_COLLAB_GUEST_PAGE ?? DEFAULT_GUEST_PAGE_URL,
   });
 
-  server.handle(createLinkRpc, async ({ agentId, allowPrompts, includeCode }, { paseo }) => {
-    const feed = createPaseoAgentFeed(paseo, agentId, { includeCode });
+  server.handle(createLinkRpc, async ({ agentId, allowPrompts }, { paseo }) => {
+    const feed = createPaseoAgentFeed(paseo, agentId);
     // Fail before registering with the relay when the agent does not exist.
     await feed.describe();
-    return links.create({ agentId, allowPrompts, includeCode, feed });
+    return links.create({ agentId, allowPrompts, feed });
   });
   server.handle(listLinksRpc, ({ agentId }) => ({ links: links.list(agentId) }));
   server.handle(stopLinkRpc, async ({ linkId }) => ({ stopped: await links.stop(linkId) }));

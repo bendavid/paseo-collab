@@ -19,18 +19,17 @@ Each link gets a fresh relay endpoint id (`srv_…`), X25519 key pair, and 32-by
 3. Inside the channel the guest sends the secret. The plugin then streams a snapshot (in batches of about 1 MiB) and live timeline events, and accepts prompts if the link allows them.
 4. The relay replaces WebSocket close codes, so the plugin sends a `closing` message with its reason before closing. The page gives up after two attempts that never reach a handshake, because the relay holds a guest open while no host is registered for a stopped link.
 
-| Path                         | Owns                                                                           |
-| ---------------------------- | ------------------------------------------------------------------------------ |
-| `server/links.ts`            | Link lifecycle: endpoint id, key pair, secret, guest limits, teardown          |
-| `server/relay-endpoint.ts`   | Relay registration, keepalive, reconnect, one data socket per guest            |
-| `server/guest-session.ts`    | One guest: handshake, secret check, snapshot plus live relay, prompts, closing |
-| `server/agent-feed.ts`       | Reads one agent's timeline, status, and approvals through the Paseo SDK        |
-| `server/guest-projection.ts` | What guests may see of each timeline item and tool call                        |
-| `server/guest-envelope.ts`   | Wraps guest prompts with their sender, escaping guest text                     |
-| `server/redact.ts`           | Best-effort secret scrubbing and secret-file detection                         |
-| `guest/`                     | The static page: React with assistant-ui, built into `site/`                   |
-| `client/`                    | The composer **Share** pill and its popover                                    |
-| `shared/guest-protocol.ts`   | Messages inside the encrypted channel                                          |
+| Path                         | Owns                                                                            |
+| ---------------------------- | ------------------------------------------------------------------------------- |
+| `server/links.ts`            | Link lifecycle: endpoint id, key pair, secret, guest limits, teardown           |
+| `server/relay-endpoint.ts`   | Relay registration, keepalive, reconnect, one data socket per guest             |
+| `server/guest-session.ts`    | One guest: handshake, secret check, snapshot plus live relay, prompts, closing  |
+| `server/agent-feed.ts`       | Reads one agent's timeline, status, and approvals through the Paseo SDK         |
+| `server/guest-projection.ts` | The guest view of each timeline item and tool call, within relay message limits |
+| `server/guest-envelope.ts`   | Wraps guest prompts with their sender, escaping guest text                      |
+| `guest/`                     | The static page: React with assistant-ui, built into `site/`                    |
+| `client/`                    | The composer **Share** pill and its popover                                     |
+| `shared/guest-protocol.ts`   | Messages inside the encrypted channel                                           |
 
 `server/relay-endpoint.ts` follows Paseo's internal relay protocol (`packages/server/src/server/relay-transport.ts` in Paseo). Check it against that file when Paseo changes its relay.
 

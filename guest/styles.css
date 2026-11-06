@@ -221,6 +221,7 @@ body,
 
 pre.code-block,
 pre.command,
+pre.output,
 pre.diff {
   font-family: var(--mono);
   font-size: 13px;
@@ -366,6 +367,16 @@ pre.diff {
 .tool-list a {
   color: var(--accent);
   font-family: inherit;
+}
+
+pre.output {
+  max-height: 360px;
+  overflow: auto;
+}
+
+.output-note {
+  color: var(--muted);
+  font-style: italic;
 }
 
 /* Diffs */

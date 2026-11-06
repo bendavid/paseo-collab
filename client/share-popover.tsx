@@ -22,7 +22,6 @@ export function SharePopover(props: PluginButtonContentProps) {
   const queryClient = useQueryClient();
   const toast = useToast();
   const [allowPrompts, setAllowPrompts] = useState(false);
-  const [includeCode, setIncludeCode] = useState(false);
 
   const queryKey = ["links", agentId];
   const links = useQuery({
@@ -32,7 +31,7 @@ export function SharePopover(props: PluginButtonContentProps) {
     refetchInterval: LIST_REFRESH_MS,
   });
   const create = useMutation({
-    mutationFn: () => createLink({ agentId: agentId ?? "", allowPrompts, includeCode }),
+    mutationFn: () => createLink({ agentId: agentId ?? "", allowPrompts }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey }),
   });
   const stop = useMutation({
@@ -105,8 +104,7 @@ export function SharePopover(props: PluginButtonContentProps) {
           {link.url}
         </Text>
         <Text style={styles.muted}>
-          {guestLabel(link)} · {link.allowPrompts ? "Guests can send prompts" : "View only"} ·{" "}
-          {link.includeCode ? "Code changes shared" : "Code changes hidden"}
+          {guestLabel(link)} · {link.allowPrompts ? "Guests can send prompts" : "View only"}
         </Text>
         <View style={styles.row}>
           <Pressable
@@ -150,14 +148,10 @@ export function SharePopover(props: PluginButtonContentProps) {
         <Text style={styles.text}>Let guests send prompts</Text>
         <Switch value={allowPrompts} onValueChange={setAllowPrompts} />
       </View>
-      <View style={styles.toggle}>
-        <Text style={styles.text}>Include code changes</Text>
-        <Switch value={includeCode} onValueChange={setIncludeCode} />
-      </View>
       <Text style={styles.muted}>
-        Guests always see prompts, replies, commands, and file paths. Code changes add the diffs of
-        edited files, except secret-looking files such as .env and keys. Command output and file
-        contents are never shared.
+        Guests see everything in the conversation, including tool calls with their full inputs and
+        outputs: commands and their output, file contents, changes, fetched web pages, and MCP tool
+        data. Nothing is filtered or redacted, so share only with people who may see all of it.
       </Text>
       <View style={styles.row}>
         <Pressable

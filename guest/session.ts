@@ -14,7 +14,6 @@ export interface GuestSessionState {
   status: GuestAgentStatus;
   items: GuestItem[];
   allowPrompts: boolean;
-  includeCode: boolean;
   pendingApprovals: string[];
   /** This guest's own name, so its prompts can read as "You". */
   guestName: string | null;
@@ -32,7 +31,6 @@ export const initialSessionState: GuestSessionState = {
   status: "idle",
   items: [],
   allowPrompts: false,
-  includeCode: false,
   pendingApprovals: [],
   guestName: null,
   notice: null,
@@ -57,7 +55,6 @@ export function sessionReducer(state: GuestSessionState, action: Action): GuestS
             agent: message.agent,
             status: message.agent.status,
             allowPrompts: message.allowPrompts,
-            includeCode: message.includeCode,
             pendingApprovals: message.agent.pendingApprovals,
             guestName: message.guestName,
           };

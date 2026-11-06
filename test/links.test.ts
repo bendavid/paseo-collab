@@ -59,7 +59,6 @@ describe("collaboration links through the relay", () => {
     const link = await manager.create({
       agentId: "a1",
       allowPrompts: true,
-      includeCode: false,
       feed: agent.feed,
     });
 
@@ -72,7 +71,6 @@ describe("collaboration links through the relay", () => {
       type: "welcome",
       agent: { title: "Fix the parser", provider: "claude", status: "idle", pendingApprovals: [] },
       allowPrompts: true,
-      includeCode: false,
       guestName: "Guest 1",
     });
     expect(await guest.next((m) => m.type === "snapshot")).toEqual({
@@ -101,7 +99,6 @@ describe("collaboration links through the relay", () => {
     const link = await manager.create({
       agentId: "a1",
       allowPrompts: false,
-      includeCode: false,
       feed: agent.feed,
     });
     const guest = await connectGuest({ url: link.url });
@@ -122,7 +119,6 @@ describe("collaboration links through the relay", () => {
     const link = await manager.create({
       agentId: "a1",
       allowPrompts: true,
-      includeCode: false,
       feed: agent.feed,
     });
 
@@ -139,13 +135,11 @@ describe("collaboration links through the relay", () => {
     const link = await manager.create({
       agentId: "a1",
       allowPrompts: true,
-      includeCode: false,
       feed: agent.feed,
     });
     const again = await manager.create({
       agentId: "a1",
       allowPrompts: false,
-      includeCode: false,
       feed: agent.feed,
     });
     expect(again.linkId).toBe(link.linkId);
@@ -178,7 +172,6 @@ describe("collaboration links through the relay", () => {
       manager.create({
         agentId: "a1",
         allowPrompts: true,
-        includeCode: false,
         feed: fakeFeed([]).feed,
       }),
     ).rejects.toThrow(/Could not register with the relay/);

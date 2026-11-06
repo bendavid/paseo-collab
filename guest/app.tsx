@@ -98,7 +98,6 @@ export function App({
           {state.agent ? (
             <div className="meta">
               {state.agent.provider} · {running ? "working" : state.status}
-              {state.includeCode ? "" : " · code changes hidden"}
             </div>
           ) : null}
         </div>

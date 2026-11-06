@@ -25,7 +25,6 @@ export interface GuestSessionOptions {
   keyPair: KeyPair;
   secret: string;
   allowPrompts: boolean;
-  includeCode: boolean;
   /** Assigned by the link; guests cannot choose it. */
   guestName: string;
   feed: AgentFeed;
@@ -147,7 +146,6 @@ export function startGuestSession(options: GuestSessionOptions): GuestSession {
         type: "welcome",
         agent,
         allowPrompts: options.allowPrompts,
-        includeCode: options.includeCode,
         guestName: options.guestName,
       });
       const [first = [], ...rest] = snapshotBatches(items);

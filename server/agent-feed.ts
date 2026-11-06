@@ -32,13 +32,9 @@ export interface AgentFeed {
   send(text: string, sender: string): Promise<void>;
 }
 
-export function createPaseoAgentFeed(
-  paseo: PaseoApi,
-  agentId: string,
-  options: { includeCode: boolean },
-): AgentFeed {
+export function createPaseoAgentFeed(paseo: PaseoApi, agentId: string): AgentFeed {
   const agent = paseo.agents.ref(agentId);
-  const context: ProjectionContext = { cwd: null, home: homedir(), ...options };
+  const context: ProjectionContext = { cwd: null, home: homedir() };
 
   async function describe(): Promise<GuestAgent> {
     const result = await agent.refresh();

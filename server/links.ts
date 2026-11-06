@@ -76,12 +76,7 @@ export class LinkManager {
   }
 
   /** Returns the agent's live link, or starts one. */
-  create(options: {
-    agentId: string;
-    allowPrompts: boolean;
-    includeCode: boolean;
-    feed: AgentFeed;
-  }): Promise<Link> {
+  create(options: { agentId: string; allowPrompts: boolean; feed: AgentFeed }): Promise<Link> {
     const existing = this.list(options.agentId)[0];
     if (existing) return Promise.resolve(existing);
     const inFlight = this.creating.get(options.agentId);
@@ -105,7 +100,6 @@ export class LinkManager {
   private async start(options: {
     agentId: string;
     allowPrompts: boolean;
-    includeCode: boolean;
     feed: AgentFeed;
   }): Promise<Link> {
     const linkId = randomUUID();
@@ -129,7 +123,6 @@ export class LinkManager {
           keyPair,
           secret,
           allowPrompts: options.allowPrompts,
-          includeCode: options.includeCode,
           guestName: `Guest ${++owner.connections}`,
           feed: options.feed,
           onAuthenticated: () => {
@@ -160,7 +153,6 @@ export class LinkManager {
           secret,
         }),
         allowPrompts: options.allowPrompts,
-        includeCode: options.includeCode,
         createdAt: new Date().toISOString(),
       },
       endpoint,

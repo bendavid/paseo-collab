@@ -1,15 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { TimelineItem } from "../server/agent-feed";
 import { type ProjectionContext, toFeedEvent, toGuestItem } from "../server/guest-projection";
-import { isSensitivePath, redactSecrets, redactTokens } from "../server/redact";
 
 type ToolCall = Extract<TimelineItem, { type: "tool_call" }>;
 
-const context = (includeCode: boolean): ProjectionContext => ({
-  cwd: "/home/ada/shop",
-  home: "/home/ada",
-  includeCode,
-});
+const context: ProjectionContext = { cwd: "/home/ada/shop", home: "/home/ada" };
 
 function tool(detail: ToolCall["detail"], extra: Partial<ToolCall> = {}): ToolCall {
   return {
@@ -24,177 +19,141 @@ function tool(detail: ToolCall["detail"], extra: Partial<ToolCall> = {}): ToolCa
 }
 
 describe("tool details shared with guests", () => {
-  it("shares a command and its exit code but never its output", () => {
+  it("shares a command, its exit code, and its output verbatim", () => {
     const item = toGuestItem(
       tool({
         type: "shell",
         command: 'curl -H "Authorization: Bearer abcdefghijklmnop" https://api.example.com',
         cwd: "/home/ada/shop/web",
-        output: "SECRET_OUTPUT_LINE",
+        output: "line one\nAPI_KEY=hunter2\n",
         exitCode: 0,
       }),
-      context(true),
+      context,
     );
 
     expect(item).toMatchObject({
       detail: {
         kind: "shell",
-        command: 'curl -H "Authorization: Bearer [redacted]" https://api.example.com',
+        command: 'curl -H "Authorization: Bearer abcdefghijklmnop" https://api.example.com',
         cwd: "web",
         exitCode: 0,
+        output: { lines: ["line one", "API_KEY=hunter2"], truncated: false },
       },
     });
-    expect(JSON.stringify(item)).not.toContain("SECRET_OUTPUT_LINE");
   });
 
-  it("shares file paths and line ranges but never file contents", () => {
-    const item = toGuestItem(
-      tool({
-        type: "read",
-        filePath: "/home/ada/shop/src/app.ts",
-        content: "FILE_CONTENTS",
-        offset: 10,
-        limit: 20,
-      }),
-      context(true),
-    );
-
-    expect(item).toMatchObject({
-      summary: "src/app.ts",
-      detail: { kind: "read", path: "src/app.ts", offset: 10, limit: 20 },
-    });
-    expect(JSON.stringify(item)).not.toContain("FILE_CONTENTS");
+  it("shares file contents and diffs, secret files included", () => {
     expect(
-      toGuestItem(tool({ type: "read", filePath: "/home/ada/notes/todo.md" }), context(true)),
-    ).toMatchObject({ detail: { path: "~/notes/todo.md" } });
-  });
-
-  it("shares diffs only when the link includes code, never for secret files", () => {
-    const edit = (filePath: string) =>
-      tool({
-        type: "edit",
-        filePath,
-        unifiedDiff: [
-          "--- a/src/config.ts",
-          "+++ b/src/config.ts",
-          "@@ -1,2 +1,2 @@",
-          ' const region = "eu";',
-          '-const apiKey = "old-value-123";',
-          '+const apiKey = "sk-ant-abcdefghijklmnopqrstuv";',
-        ].join("\n"),
-      });
-
-    expect(toGuestItem(edit("/home/ada/shop/src/config.ts"), context(false))).toMatchObject({
-      detail: { kind: "edit", diff: { withheld: "not-shared" } },
+      toGuestItem(
+        tool({ type: "read", filePath: "/home/ada/shop/.env", content: "TOKEN=abc\nDEBUG=1\n" }),
+        context,
+      ),
+    ).toMatchObject({
+      summary: ".env",
+      detail: { kind: "read", path: ".env", content: { lines: ["TOKEN=abc", "DEBUG=1"] } },
     });
-    expect(toGuestItem(edit("/home/ada/shop/.env.local"), context(true))).toMatchObject({
-      detail: { kind: "edit", diff: { withheld: "sensitive-file" } },
-    });
-    expect(toGuestItem(edit("/home/ada/shop/src/config.ts"), context(true))).toMatchObject({
+    expect(
+      toGuestItem(
+        tool({
+          type: "edit",
+          filePath: "/home/ada/shop/src/config.ts",
+          unifiedDiff:
+            '--- a/x\n+++ b/x\n@@ -1 +1 @@\n-const key = "old";\n+const key = "sk-ant-new";\n',
+        }),
+        context,
+      ),
+    ).toMatchObject({
       detail: {
         kind: "edit",
         path: "src/config.ts",
         diff: {
-          lines: [
-            "@@ -1,2 +1,2 @@",
-            ' const region = "eu";',
-            "-const apiKey = [redacted];",
-            "+const apiKey = [redacted];",
-          ],
+          lines: ["@@ -1 +1 @@", '-const key = "old";', '+const key = "sk-ant-new";'],
           truncated: false,
         },
       },
     });
+    expect(
+      toGuestItem(tool({ type: "read", filePath: "/home/ada/notes/todo.md" }), context),
+    ).toMatchObject({ detail: { path: "~/notes/todo.md" } });
   });
 
-  it("caps long diffs", () => {
-    const content = Array.from({ length: 450 }, (_, i) => `line ${i}`).join("\n");
-    const item = toGuestItem(
-      tool({ type: "write", filePath: "/home/ada/shop/big.txt", content }),
-      context(true),
-    );
-
-    expect(item).toMatchObject({ detail: { diff: { truncated: true } } });
-    expect((item as { detail: { diff: { lines: string[] } } }).detail.diff.lines).toHaveLength(400);
-  });
-
-  it("shares only the name of tools it does not know, such as MCP tools", () => {
-    const item = toGuestItem(
-      tool(
-        { type: "unknown", input: { query: "PRIVATE_INPUT" }, output: "PRIVATE_OUTPUT" },
-        { name: "mcp__db__query" },
-      ),
-      context(true),
-    );
-
-    expect(item).toMatchObject({ name: "mcp__db__query", detail: { kind: "other" } });
-    expect(JSON.stringify(item)).not.toMatch(/PRIVATE_/);
-  });
-
-  it("scrubs tokens from conversation text and failure messages", () => {
+  it("shares search matches, fetched pages, and MCP inputs and outputs", () => {
     expect(
       toGuestItem(
-        { type: "assistant_message", text: "Use ghp_abcdefghijklmnopqrstuvwxyz0123456789 here" },
-        context(false),
+        tool({ type: "search", query: "TODO", content: "src/a.ts:3:// TODO fix\n" }),
+        context,
       ),
-    ).toEqual({ type: "assistant_message", text: "Use [redacted] here" });
+    ).toMatchObject({ detail: { content: { lines: ["src/a.ts:3:// TODO fix"] } } });
+    expect(
+      toGuestItem(
+        tool({
+          type: "fetch",
+          url: "https://example.com/docs",
+          prompt: "What is the limit?",
+          result: "The limit is 5.",
+          code: 200,
+        }),
+        context,
+      ),
+    ).toMatchObject({
+      detail: {
+        kind: "fetch",
+        prompt: "What is the limit?",
+        status: 200,
+        result: { lines: ["The limit is 5."] },
+      },
+    });
     expect(
       toGuestItem(
         tool(
-          { type: "shell", command: "deploy" },
-          { status: "failed", error: { message: "denied for token=abcdefghijklmnop" } },
+          { type: "unknown", input: { sql: "select 1" }, output: "1 row" },
+          { name: "mcp__db__query" },
         ),
-        context(false),
+        context,
       ),
-    ).toMatchObject({ status: "failed", error: "denied for token=[redacted]" });
+    ).toMatchObject({
+      name: "mcp__db__query",
+      detail: {
+        kind: "other",
+        input: { lines: ["{", '  "sql": "select 1"', "}"] },
+        output: { lines: ["1 row"] },
+      },
+    });
+  });
+
+  it("keeps the end of very long output, where the result is, within one relay message", () => {
+    const output = Array.from({ length: 40_000 }, (_, i) => `line ${i} ${"x".repeat(40)}`).join(
+      "\n",
+    );
+    const item = toGuestItem(tool({ type: "shell", command: "build", output }), context);
+    const shown = (item as { detail: { output: { lines: string[]; truncated: boolean } } }).detail
+      .output;
+
+    expect(shown.truncated).toBe(true);
+    expect(shown.lines.at(-1)).toBe(`line 39999 ${"x".repeat(40)}`);
+    expect(shown.lines.join("\n").length).toBeLessThanOrEqual(1024 * 1024);
+  });
+
+  it("passes conversation text and failures through unchanged", () => {
+    expect(
+      toGuestItem(
+        { type: "assistant_message", text: "Use ghp_abcdefghijklmnopqrstuvwxyz0123456789" },
+        context,
+      ),
+    ).toEqual({ type: "assistant_message", text: "Use ghp_abcdefghijklmnopqrstuvwxyz0123456789" });
+    expect(
+      toGuestItem(
+        tool(
+          { type: "shell", command: "git push" },
+          { status: "failed", error: { message: "denied" } },
+        ),
+        context,
+      ),
+    ).toMatchObject({ status: "failed", error: "denied" });
   });
 
   it("asks for a fresh snapshot after a gap or a rewritten timeline", () => {
-    expect(toFeedEvent({ type: "replacement", epoch: "e2" }, context(false))).toEqual({
-      type: "reset",
-    });
-    expect(toFeedEvent({ type: "subscription_restored" }, context(false))).toEqual({
-      type: "reset",
-    });
-  });
-});
-
-describe("redaction", () => {
-  it("keeps ordinary code intact", () => {
-    const code = "const token = await getToken(user);\nif (password.length < 8) return;";
-    expect(redactSecrets(code)).toBe(code);
-    expect(redactTokens("see https://example.com/docs")).toBe("see https://example.com/docs");
-  });
-
-  it("scrubs URL credentials and private keys", () => {
-    expect(redactTokens("git clone https://ada:hunter2@git.example.com/x.git")).toBe(
-      "git clone https://ada:[redacted]@git.example.com/x.git",
-    );
-    expect(
-      redactTokens("-----BEGIN OPENSSH PRIVATE KEY-----\nabc\n-----END OPENSSH PRIVATE KEY-----"),
-    ).toBe("[redacted]");
-  });
-
-  it("recognizes secret-bearing files", () => {
-    for (const file of [
-      ".env",
-      "app/.env.production",
-      "id_ed25519",
-      "certs/server.key",
-      "config/client_secret.json",
-      "secrets.yaml",
-    ]) {
-      expect(isSensitivePath(file), file).toBe(true);
-    }
-    expect(isSensitivePath("/home/ada/.ssh/config")).toBe(true);
-    expect(isSensitivePath("/home/ada/.aws/credentials")).toBe(true);
-    for (const file of [
-      "src/env.ts",
-      "README.md",
-      "src/token-bucket.ts",
-      "docs/secrets-guide.md",
-    ]) {
-      expect(isSensitivePath(file), file).toBe(false);
-    }
+    expect(toFeedEvent({ type: "replacement", epoch: "e2" }, context)).toEqual({ type: "reset" });
+    expect(toFeedEvent({ type: "subscription_restored" }, context)).toEqual({ type: "reset" });
   });
 });

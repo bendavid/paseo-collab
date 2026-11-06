@@ -15,20 +15,36 @@ export type GuestInbound = z.input<typeof GuestInboundSchema>;
 
 export type GuestToolStatus = "running" | "completed" | "failed" | "canceled";
 
-/** A change shown to guests, or why it was withheld. */
-export type GuestDiff =
-  { lines: string[]; truncated: boolean } | { withheld: "sensitive-file" | "not-shared" };
+/** Lines shown to guests: a diff, command output, file contents, or a tool's input or output. */
+export type GuestLines =
+  | { lines: string[]; truncated: boolean }
+  // COMPAT(withheldLines): plugin 0.1.0 withheld diffs of secret-looking files, and all diffs
+  // unless the link opted in. The page is always the latest tag, so it keeps explaining these
+  // markers while hosts still run 0.1.0.
+  | { withheld: "sensitive-file" | "not-shared" };
 
 /**
- * What a guest may know about a tool call. Inputs and metadata only: command output, file
- * contents, fetched pages, and search matches never leave the daemon. Paths are relative to the
- * agent's directory, and free text is scrubbed of recognizable secrets.
+ * Everything the timeline holds about a tool call. Paths are relative to the agent's directory;
+ * very long fields are cut to fit relay messages and marked truncated.
  */
 export type GuestToolDetail =
-  | { kind: "shell"; command: string; cwd?: string; exitCode?: number | null }
-  | { kind: "read"; path: string; offset?: number; limit?: number }
-  | { kind: "edit"; path: string; diff: GuestDiff }
-  | { kind: "write"; path: string; diff: GuestDiff }
+  | {
+      kind: "shell";
+      command: string;
+      cwd?: string;
+      exitCode?: number | null;
+      /** The end of the output, where results and errors are. */
+      output?: GuestLines;
+    }
+  | {
+      kind: "read";
+      path: string;
+      offset?: number;
+      limit?: number;
+      content?: GuestLines;
+    }
+  | { kind: "edit"; path: string; diff: GuestLines }
+  | { kind: "write"; path: string; diff: GuestLines }
   | {
       kind: "search";
       query: string;
@@ -37,8 +53,19 @@ export type GuestToolDetail =
       numFiles?: number;
       numMatches?: number;
       web?: { title: string; url: string }[];
+      /** Matching lines; lines from secret-looking files are withheld individually. */
+      content?: GuestLines;
     }
-  | { kind: "fetch"; url: string; status?: number; statusText?: string; bytes?: number }
+  | {
+      kind: "fetch";
+      url: string;
+      /** What the agent asked about the page. */
+      prompt?: string;
+      status?: number;
+      statusText?: string;
+      bytes?: number;
+      result?: GuestLines;
+    }
   | { kind: "task"; agentType?: string; description?: string }
   | { kind: "text"; label?: string; text?: string }
   | { kind: "plan"; text: string }
@@ -47,7 +74,8 @@ export type GuestToolDetail =
       branch: string;
       commands: { command: string; status: string; exitCode: number | null }[];
     }
-  | { kind: "other" };
+  /** Provider-specific and MCP tools. */
+  | { kind: "other"; input?: GuestLines; output?: GuestLines };
 
 export interface GuestTool {
   type: "tool";
@@ -85,7 +113,6 @@ export type GuestOutbound =
       type: "welcome";
       agent: GuestAgent;
       allowPrompts: boolean;
-      includeCode: boolean;
       /** How this guest's prompts are labelled for the agent and other guests. */
       guestName: string;
     }

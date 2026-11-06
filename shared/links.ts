@@ -7,8 +7,6 @@ export const LinkSchema = z.object({
   /** The full invitation, including the key and secret in the fragment. */
   url: z.string(),
   allowPrompts: z.boolean(),
-  /** Whether guests see code changes (diffs). */
-  includeCode: z.boolean(),
   guests: z.number().int().nonnegative(),
   createdAt: z.string(),
 });
@@ -20,7 +18,6 @@ export const createLinkRpc = defineRpc({
   input: z.object({
     agentId: z.string().min(1),
     allowPrompts: z.boolean(),
-    includeCode: z.boolean(),
   }),
   output: LinkSchema,
 });

@@ -1,30 +1,26 @@
 import path from "node:path";
-import type { GuestDiff, GuestItem, GuestTool, GuestToolDetail } from "../shared/guest-protocol";
+import type { GuestItem, GuestLines, GuestTool, GuestToolDetail } from "../shared/guest-protocol";
 import type { FeedEvent, TimelineEvent, TimelineItem } from "./agent-feed";
 import { parseGuestPrompt } from "./guest-envelope";
-import { isSensitivePath, redactSecrets, redactTokens } from "./redact";
 
 type ToolCallItem = Extract<TimelineItem, { type: "tool_call" }>;
 type ToolDetail = ToolCallItem["detail"];
 
+/** Length of a tool card's one-line summary. */
 const SUMMARY_LIMIT = 300;
-const COMMAND_LIMIT = 2_000;
-const TEXT_LIMIT = 4_000;
-const PLAN_LIMIT = 8_000;
-const ERROR_LIMIT = 300;
-const DIFF_LINE_LIMIT = 400;
-const DIFF_LINE_LENGTH = 500;
-const LIST_LIMIT = 50;
+/**
+ * Characters per field. Not a privacy filter: one timeline row travels as one relay message,
+ * which the relay caps at 32 MiB, so a giant file or output is cut here and marked truncated.
+ */
+const FIELD_LIMIT = 1024 * 1024;
 
 export interface ProjectionContext {
   /** The agent's working directory; paths inside it are shown relative to it. */
   cwd: string | null;
   home: string;
-  /** Whether this link shares code changes. */
-  includeCode: boolean;
 }
 
-function clip(text: string, limit: number): string {
+function clip(text: string, limit = FIELD_LIMIT): string {
   return text.length > limit ? `${text.slice(0, limit - 1)}…` : text;
 }
 
@@ -44,17 +40,42 @@ export function displayPath(filePath: string, context: ProjectionContext): strin
   return filePath;
 }
 
-function diffLines(lines: string[]): GuestDiff {
-  const shown = lines
-    .slice(0, DIFF_LINE_LIMIT)
-    .map((line) => redactSecrets(clip(line, DIFF_LINE_LENGTH)));
-  return { lines: shown, truncated: lines.length > DIFF_LINE_LIMIT };
-}
-
 function splitLines(text: string): string[] {
   const lines = text.split("\n");
   if (lines[lines.length - 1] === "") lines.pop();
   return lines;
+}
+
+/** Lines within the field limit. Command output keeps its end, where results and errors are. */
+function shownLines(lines: string[], keep: "head" | "tail" = "head"): GuestLines {
+  const ordered = keep === "head" ? lines : [...lines].reverse();
+  const kept: string[] = [];
+  let size = 0;
+  for (const line of ordered) {
+    const shown = clip(line);
+    if (kept.length > 0 && size + shown.length > FIELD_LIMIT) break;
+    kept.push(shown);
+    size += shown.length + 1;
+  }
+  return {
+    lines: keep === "head" ? kept : kept.reverse(),
+    truncated: kept.length < lines.length,
+  };
+}
+
+function textLines(text: string, keep: "head" | "tail" = "head"): GuestLines {
+  return shownLines(splitLines(text), keep);
+}
+
+/** Tool inputs and outputs as text: strings as they are, anything else as indented JSON. */
+function valueLines(value: unknown): GuestLines | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value === "string") return textLines(value);
+  try {
+    return textLines(JSON.stringify(value, null, 2) ?? String(value));
+  } catch {
+    return textLines(String(value));
+  }
 }
 
 /** Hunk and change lines from a unified diff, without the file headers that repeat the path. */
@@ -68,24 +89,15 @@ function unifiedDiffLines(diff: string): string[] {
   );
 }
 
-function projectChange(
-  filePath: string,
-  context: ProjectionContext,
-  lines: () => string[] | null,
-): GuestDiff {
-  if (!context.includeCode) return { withheld: "not-shared" };
-  if (isSensitivePath(filePath)) return { withheld: "sensitive-file" };
-  return diffLines(lines() ?? []);
-}
-
 function projectDetail(detail: ToolDetail, context: ProjectionContext): GuestToolDetail {
   switch (detail.type) {
     case "shell":
       return {
         kind: "shell",
-        command: redactSecrets(clip(detail.command, COMMAND_LIMIT)),
+        command: clip(detail.command),
         ...(detail.cwd ? { cwd: displayPath(detail.cwd, context) } : {}),
         ...(detail.exitCode !== undefined ? { exitCode: detail.exitCode } : {}),
+        ...(detail.output ? { output: textLines(detail.output, "tail") } : {}),
       };
     case "read":
       return {
@@ -93,80 +105,79 @@ function projectDetail(detail: ToolDetail, context: ProjectionContext): GuestToo
         path: displayPath(detail.filePath, context),
         ...(detail.offset !== undefined ? { offset: detail.offset } : {}),
         ...(detail.limit !== undefined ? { limit: detail.limit } : {}),
+        ...(detail.content !== undefined ? { content: textLines(detail.content) } : {}),
       };
-    case "edit":
-      return {
-        kind: "edit",
-        path: displayPath(detail.filePath, context),
-        diff: projectChange(detail.filePath, context, () => {
-          if (detail.unifiedDiff) return unifiedDiffLines(detail.unifiedDiff);
-          if (detail.oldString === undefined && detail.newString === undefined) return null;
-          return [
+    case "edit": {
+      const lines = detail.unifiedDiff
+        ? unifiedDiffLines(detail.unifiedDiff)
+        : [
             ...splitLines(detail.oldString ?? "").map((line) => `-${line}`),
             ...splitLines(detail.newString ?? "").map((line) => `+${line}`),
           ];
-        }),
-      };
+      return { kind: "edit", path: displayPath(detail.filePath, context), diff: shownLines(lines) };
+    }
     case "write":
       return {
         kind: "write",
         path: displayPath(detail.filePath, context),
-        diff: projectChange(detail.filePath, context, () =>
-          detail.content === undefined ? null : splitLines(detail.content).map((l) => `+${l}`),
-        ),
+        diff: shownLines(splitLines(detail.content ?? "").map((line) => `+${line}`)),
       };
     case "search":
       return {
         kind: "search",
-        query: redactSecrets(clip(detail.query, COMMAND_LIMIT)),
+        query: clip(detail.query),
         ...(detail.toolName ? { tool: detail.toolName } : {}),
         ...(detail.filePaths
-          ? { files: detail.filePaths.slice(0, LIST_LIMIT).map((f) => displayPath(f, context)) }
+          ? { files: detail.filePaths.map((file) => displayPath(file, context)) }
           : {}),
         ...(detail.numFiles !== undefined ? { numFiles: detail.numFiles } : {}),
         ...(detail.numMatches !== undefined ? { numMatches: detail.numMatches } : {}),
         ...(detail.webResults
-          ? {
-              web: detail.webResults
-                .slice(0, LIST_LIMIT)
-                .map(({ title, url }) => ({ title, url: redactTokens(url) })),
-            }
+          ? { web: detail.webResults.map(({ title, url }) => ({ title, url })) }
           : {}),
+        ...(detail.content ? { content: textLines(detail.content) } : {}),
       };
     case "fetch":
       return {
         kind: "fetch",
-        url: redactSecrets(detail.url),
+        url: detail.url,
+        ...(detail.prompt ? { prompt: clip(detail.prompt) } : {}),
         ...(detail.code !== undefined ? { status: detail.code } : {}),
         ...(detail.codeText ? { statusText: detail.codeText } : {}),
         ...(detail.bytes !== undefined ? { bytes: detail.bytes } : {}),
+        ...(detail.result ? { result: textLines(detail.result) } : {}),
       };
     case "sub_agent":
       return {
         kind: "task",
         ...(detail.subAgentType ? { agentType: detail.subAgentType } : {}),
-        ...(detail.description ? { description: redactTokens(detail.description) } : {}),
+        ...(detail.description ? { description: clip(detail.description) } : {}),
       };
     case "plain_text":
       return {
         kind: "text",
-        ...(detail.label ? { label: redactTokens(clip(detail.label, SUMMARY_LIMIT)) } : {}),
-        ...(detail.text ? { text: redactSecrets(clip(detail.text, TEXT_LIMIT)) } : {}),
+        ...(detail.label ? { label: clip(detail.label, SUMMARY_LIMIT) } : {}),
+        ...(detail.text ? { text: clip(detail.text) } : {}),
       };
     case "plan":
-      return { kind: "plan", text: redactTokens(clip(detail.text, PLAN_LIMIT)) };
+      return { kind: "plan", text: clip(detail.text) };
     case "worktree_setup":
       return {
         kind: "worktree",
         branch: detail.branchName,
-        commands: detail.commands.slice(0, LIST_LIMIT).map((command) => ({
-          command: redactSecrets(clip(command.command, COMMAND_LIMIT)),
+        commands: detail.commands.map((command) => ({
+          command: clip(command.command),
           status: command.status,
           exitCode: command.exitCode,
         })),
       };
+    case "unknown": {
+      // Provider-specific and MCP tools: their raw input and output.
+      const input = valueLines(detail.input);
+      const output = valueLines(detail.output);
+      return { kind: "other", ...(input ? { input } : {}), ...(output ? { output } : {}) };
+    }
     default:
-      // Unknown and provider-specific tools (including MCP) can carry anything: name only.
       return { kind: "other" };
   }
 }
@@ -197,15 +208,15 @@ function summarize(detail: GuestToolDetail): string {
 }
 
 function errorMessage(error: unknown): string | undefined {
-  const message =
-    typeof error === "string"
-      ? error
-      : typeof error === "object" &&
-          error !== null &&
-          typeof Reflect.get(error, "message") === "string"
-        ? (Reflect.get(error, "message") as string)
-        : undefined;
-  return message === undefined ? undefined : redactSecrets(oneLine(clip(message, ERROR_LIMIT)));
+  if (error === undefined || error === null) return undefined;
+  if (typeof error === "string") return clip(error);
+  const message = typeof error === "object" ? Reflect.get(error, "message") : undefined;
+  if (typeof message === "string") return clip(message);
+  try {
+    return clip(JSON.stringify(error));
+  } catch {
+    return clip(String(error));
+  }
 }
 
 export function projectTool(item: ToolCallItem, context: ProjectionContext): GuestTool {
@@ -229,26 +240,26 @@ export function toGuestItem(item: TimelineItem, context: ProjectionContext): Gue
       const guest = parseGuestPrompt(item.text);
       return {
         type: "user_message",
-        text: redactTokens(guest?.text ?? item.text),
+        text: clip(guest?.text ?? item.text),
         ...(item.messageId ? { messageId: item.messageId } : {}),
         ...(guest ? { sender: guest.sender } : {}),
       };
     }
     case "assistant_message":
-      return { type: "assistant_message", text: redactTokens(item.text) };
+      return { type: "assistant_message", text: item.text };
     case "reasoning":
-      return { type: "reasoning", text: redactTokens(item.text) };
+      return { type: "reasoning", text: item.text };
     case "tool_call":
       return projectTool(item, context);
     case "todo":
       return {
         type: "todo",
-        items: item.items.map(({ text, completed }) => ({ text: redactTokens(text), completed })),
+        items: item.items.map(({ text, completed }) => ({ text, completed })),
       };
     case "error":
-      return { type: "notice", level: "error", message: redactTokens(item.message) };
+      return { type: "notice", level: "error", message: item.message };
     case "notification":
-      return { type: "notice", level: item.level, message: redactTokens(item.message) };
+      return { type: "notice", level: item.level, message: item.message };
     default:
       return null;
   }

@@ -53,7 +53,6 @@ describe.skipIf(!endpoint)("links through a real relay", () => {
     const link = await manager.create({
       agentId: "a1",
       allowPrompts: true,
-      includeCode: false,
       feed: agent.feed,
     });
 
