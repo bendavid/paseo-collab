@@ -20,13 +20,19 @@ export interface LinkManagerOptions {
   registrationTimeoutMs?: number;
 }
 
+/** One connection to the link, from before its handshake until it closes. */
+interface Guest {
+  /** Unique among the link's connections. */
+  name: string;
+  /** Presented the secret; only admitted guests are listed as connected. */
+  admitted: boolean;
+  session: GuestSession | null;
+}
+
 interface ActiveLink {
-  link: Omit<Link, "guests">;
+  link: Omit<Link, "guests" | "participants">;
   endpoint: RelayEndpoint;
-  sessions: Set<GuestSession>;
-  /** Current name of each connected guest, kept unique. */
-  names: Set<{ name: string }>;
-  guests: number;
+  guests: Set<Guest>;
   /** Numbers guest connections; a reconnecting guest gets a new number. */
   connections: number;
   rejections: number;
@@ -65,6 +71,19 @@ export function invitationUrl(options: {
   return `${options.guestPageUrl}#${fragment.toString()}`;
 }
 
+/** Names of the link's admitted guests, in the order they joined. */
+function connectedNames(active: ActiveLink): string[] {
+  return [...active.guests].filter((guest) => guest.admitted).map((guest) => guest.name);
+}
+
+/** Tells every admitted guest who is connected, after a join, rename, or leave. */
+function announceParticipants(active: ActiveLink): void {
+  const names = connectedNames(active);
+  for (const guest of active.guests) {
+    if (guest.admitted) guest.session?.announceParticipants(names);
+  }
+}
+
 export class LinkManager {
   private readonly links = new Map<string, ActiveLink>();
   /** One create at a time per agent, so a double tap cannot register two endpoints. */
@@ -75,7 +94,10 @@ export class LinkManager {
   list(agentId?: string): Link[] {
     return [...this.links.values()]
       .filter((active) => !active.stopping && (!agentId || active.link.agentId === agentId))
-      .map((active) => ({ ...active.link, guests: active.guests }));
+      .map((active) => {
+        const participants = connectedNames(active);
+        return { ...active.link, guests: participants.length, participants };
+      });
   }
 
   /** Returns the agent's live link, or starts one. */
@@ -119,39 +141,43 @@ export class LinkManager {
         : {}),
       onConnection: (transport) => {
         if (!active || active.stopping) return transport.close(CLOSE_LINK_STOPPED, "link stopped");
-        if (active.sessions.size >= MAX_GUESTS) return transport.close(4429, "too many guests");
+        if (active.guests.size >= MAX_GUESTS) return transport.close(4429, "too many guests");
         const owner = active;
-        const slot = { name: `Guest ${++owner.connections}` };
-        owner.names.add(slot);
-        const session = startGuestSession({
+        const guest: Guest = {
+          name: `Guest ${++owner.connections}`,
+          admitted: false,
+          session: null,
+        };
+        owner.guests.add(guest);
+        guest.session = startGuestSession({
           transport,
           keyPair,
           secret,
           allowPrompts: options.allowPrompts,
-          guestName: slot.name,
+          guestName: guest.name,
           claimName: (requested) => {
-            const others = [...owner.names].filter((other) => other !== slot);
-            slot.name = uniqueGuestName(
+            const others = [...owner.guests].filter((other) => other !== guest);
+            guest.name = uniqueGuestName(
               requested,
               others.map((other) => other.name),
             );
-            return slot.name;
+            announceParticipants(owner);
+            return guest.name;
           },
           feed: options.feed,
           onAuthenticated: () => {
-            owner.guests += 1;
+            guest.admitted = true;
+            announceParticipants(owner);
           },
           onRejected: () => {
             owner.rejections += 1;
             if (owner.rejections >= MAX_REJECTIONS) void this.teardown(linkId, owner);
           },
-          onClosed: (authenticated) => {
-            owner.sessions.delete(session);
-            owner.names.delete(slot);
-            if (authenticated) owner.guests -= 1;
+          onClosed: (admitted) => {
+            owner.guests.delete(guest);
+            if (admitted) announceParticipants(owner);
           },
         });
-        owner.sessions.add(session);
       },
     });
 
@@ -170,22 +196,20 @@ export class LinkManager {
         createdAt: new Date().toISOString(),
       },
       endpoint,
-      sessions: new Set(),
-      names: new Set(),
-      guests: 0,
+      guests: new Set(),
       connections: 0,
       rejections: 0,
       stopping: null,
     };
     this.links.set(linkId, active);
-    return { ...active.link, guests: 0 };
+    return { ...active.link, guests: 0, participants: [] };
   }
 
   private teardown(linkId: string, active: ActiveLink): Promise<void> {
     active.stopping ??= (async () => {
       // Sessions tell their guests before closing; the relay replaces close codes.
       await Promise.allSettled(
-        [...active.sessions].map((session) => session.close(CLOSE_LINK_STOPPED, "link stopped")),
+        [...active.guests].map((guest) => guest.session?.close(CLOSE_LINK_STOPPED, "link stopped")),
       );
       active.endpoint.stop();
       this.links.delete(linkId);

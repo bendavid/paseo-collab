@@ -134,6 +134,53 @@ describe("collaboration links through the relay", () => {
     });
   });
 
+  it("tells every guest and the host who is connected", async () => {
+    await setup();
+    const link = await manager.create({
+      agentId: "a1",
+      allowPrompts: true,
+      feed: fakeFeed([]).feed,
+    });
+    const latest = (guest: Awaited<ReturnType<typeof connectGuest>>) =>
+      guest.messages.filter((m) => m.type === "participants").at(-1);
+
+    const first = await connectGuest({ url: link.url });
+    await expect.poll(() => latest(first)).toEqual({ type: "participants", names: ["Guest 1"] });
+    const second = await connectGuest({ url: link.url });
+    await expect
+      .poll(() => latest(first))
+      .toEqual({ type: "participants", names: ["Guest 1", "Guest 2"] });
+    await expect
+      .poll(() => latest(second))
+      .toEqual({ type: "participants", names: ["Guest 1", "Guest 2"] });
+
+    await second.send({ type: "set_name", name: "Bob" });
+    await expect
+      .poll(() => latest(first))
+      .toEqual({ type: "participants", names: ["Guest 1", "Bob"] });
+    expect(manager.list("a1")[0]).toMatchObject({ guests: 2, participants: ["Guest 1", "Bob"] });
+
+    first.close();
+    await expect.poll(() => latest(second)).toEqual({ type: "participants", names: ["Bob"] });
+    expect(manager.list("a1")[0]).toMatchObject({ guests: 1, participants: ["Bob"] });
+  });
+
+  it("does not list a connection that never presents the secret", async () => {
+    await setup();
+    const link = await manager.create({
+      agentId: "a1",
+      allowPrompts: true,
+      feed: fakeFeed([]).feed,
+    });
+    const guest = await connectGuest({ url: link.url });
+    await expect.poll(() => manager.list("a1")[0]?.participants).toEqual(["Guest 1"]);
+
+    const intruder = await connectGuest({ url: link.url, secret: "wrong" });
+    await intruder.closed;
+    expect(manager.list("a1")[0]?.participants).toEqual(["Guest 1"]);
+    expect(guest.messages.filter((m) => m.type === "participants")).toHaveLength(1);
+  });
+
   it("refuses prompts on a view-only link", async () => {
     await setup();
     const agent = fakeFeed([]);

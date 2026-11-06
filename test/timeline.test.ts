@@ -1,7 +1,8 @@
 import { exportPublicKey, generateKeyPair } from "@getpaseo/relay/e2ee";
 import { describe, expect, it } from "vitest";
 import { senderLabel, toThreadMessages } from "../guest/convert";
-import { applyItem, readInvitation } from "../guest/timeline";
+import { readInvitation } from "../guest/timeline";
+import { applyItem, foldItems } from "../shared/timeline-fold";
 import { invitationUrl } from "../server/links";
 import type { GuestTool } from "../shared/guest-protocol";
 

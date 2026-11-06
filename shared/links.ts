@@ -8,6 +8,8 @@ export const LinkSchema = z.object({
   url: z.string(),
   allowPrompts: z.boolean(),
   guests: z.number().int().nonnegative(),
+  /** Names of the connected guests, in the order they joined. */
+  participants: z.array(z.string()),
   createdAt: z.string(),
 });
 

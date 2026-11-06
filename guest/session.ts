@@ -6,7 +6,8 @@ import type {
   GuestOutbound,
 } from "../shared/guest-protocol";
 import { type ConnectionState, GuestConnection } from "./connection";
-import { applyItem, type InvitationResult } from "./timeline";
+import { applyItem } from "../shared/timeline-fold";
+import type { InvitationResult } from "./timeline";
 
 export interface GuestSessionState {
   connection: ConnectionState;
@@ -19,6 +20,8 @@ export interface GuestSessionState {
   guestName: string | null;
   /** Whether the page is asking the guest for a name. */
   askingName: boolean;
+  /** Guests connected to the link; null until the plugin reports them (plugin 0.4.0+). */
+  participants: string[] | null;
   notice: string | null;
 }
 
@@ -37,6 +40,7 @@ export const initialSessionState: GuestSessionState = {
   pendingApprovals: [],
   guestName: null,
   askingName: false,
+  participants: null,
   notice: null,
 };
 
@@ -81,9 +85,14 @@ export function sessionReducer(state: GuestSessionState, action: Action): GuestS
             pendingApprovals: message.pending ? [...others, message.requestId] : others,
           };
         }
+        case "participants":
+          return { ...state, participants: message.names };
         case "prompt_rejected":
         case "closing":
           return { ...state, notice: message.reason };
+        default:
+          // A newer plugin may send messages this page does not know yet.
+          return state;
       }
     }
   }

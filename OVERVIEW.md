@@ -4,7 +4,7 @@ The guest page is a static site on GitHub Pages, and the conversation travels th
 
 ## What guests see and can do
 
-Guests get the last 200 timeline rows and live updates in a chat view: prompts, replies with formatted Markdown and highlighted code, reasoning, task lists, and a card per tool call. They also see when the agent is waiting for you to approve a tool call, but not what it asked for.
+Guests get the whole conversation from its start, then live updates, in a chat view: prompts, replies with formatted Markdown and highlighted code, reasoning, task lists, and a card per tool call. They also see when the agent is waiting for you to approve a tool call, but not what it asked for.
 
 Tool cards carry everything the timeline records: commands and their output, file contents the agent reads, diffs of the changes it makes, search matches, fetched web pages, and the inputs and outputs of MCP and other tools. Nothing is filtered or redacted, including secret files such as `.env` and any credentials that appear in output, so share a link only with people who may see all of it. Paths inside the agent's directory are shown relative to it, and your home directory as `~`. A field longer than 1 MiB is cut to fit the relay's message size; command output keeps its end.
 
@@ -13,6 +13,7 @@ Tool cards carry everything the timeline records: commands and their output, fil
 - Guest prompts reach the agent labelled with the guest's name, with a note that the guest is not the session's owner. Your own prompts are not labelled. Guests see who sent each prompt. In Paseo, a guest prompt appears with its label text, because the app does not recognize the label.
 - A guest prompt sent while the agent is working joins the running turn instead of interrupting it. Providers that cannot do this (Claude, Codex, OpenCode, OMP, and Pi can) restart the turn with the prompt instead.
 - The prompt switch is fixed for the life of a link. Stop the link and create a new one to change it.
+- Everyone on the link sees who is connected, and the **Share** popover in Paseo lists the connected guests by name.
 - Up to 8 guests can join one link at a time.
 
 ## Limits

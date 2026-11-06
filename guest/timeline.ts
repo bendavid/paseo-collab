@@ -1,31 +1,4 @@
-import type { GuestItem } from "../shared/guest-protocol";
 import { GUEST_PROTOCOL_VERSION } from "../shared/guest-version";
-
-/**
- * Folds one live item into the guest's timeline the way the daemon's projection does: streamed
- * assistant and reasoning text joins the previous chunk, and a tool call's later states replace
- * its earlier one.
- */
-export function applyItem(items: GuestItem[], item: GuestItem): GuestItem[] {
-  const last = items[items.length - 1];
-  if (
-    (item.type === "assistant_message" || item.type === "reasoning") &&
-    last?.type === item.type
-  ) {
-    return [...items.slice(0, -1), { ...last, text: last.text + item.text }];
-  }
-  if (item.type === "tool") {
-    const index = items.findIndex((row) => row.type === "tool" && row.callId === item.callId);
-    if (index !== -1) return items.map((row, i) => (i === index ? item : row));
-  }
-  if (item.type === "user_message" && item.messageId) {
-    const index = items.findIndex(
-      (row) => row.type === "user_message" && row.messageId === item.messageId,
-    );
-    if (index !== -1) return items.map((row, i) => (i === index ? item : row));
-  }
-  return [...items, item];
-}
 
 /** base64url (used in the link) back to the standard base64 the channel expects. */
 export function base64UrlToBase64(value: string): string {

@@ -39,6 +39,8 @@ export interface GuestSessionOptions {
 export interface GuestSession {
   /** Tells the guest why, then closes. Resolves once the connection is closed. */
   close(code: number, reason: string): Promise<void>;
+  /** Sends the names of everyone connected to the link. */
+  announceParticipants(names: string[]): void;
 }
 
 /** Splits a snapshot so no single message grows past the batch size. */
@@ -233,5 +235,10 @@ export function startGuestSession(options: GuestSessionOptions): GuestSession {
     void close(CLOSE_PROTOCOL, "handshake failed");
   });
 
-  return { close };
+  return {
+    close,
+    announceParticipants(names) {
+      if (authenticated) send({ type: "participants", names });
+    },
+  };
 }

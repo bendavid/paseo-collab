@@ -65,6 +65,21 @@ function connectionLabel(state: GuestSessionState): { text: string; kind: string
   }
 }
 
+/** Who is on the link. The host is in Paseo, so it is always present. */
+function Participants({ names, self }: { names: string[]; self: string | null }) {
+  return (
+    <ul className="participants" aria-label="Connected">
+      <li className="participant participant-host">Host</li>
+      {names.map((name) => (
+        <li key={name} className="participant">
+          {name}
+          {name === self ? " (you)" : ""}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function App({
   state,
   sendPrompt,
@@ -102,6 +117,9 @@ export function App({
             <div className="meta">
               {state.agent.provider} · {running ? "working" : state.status}
             </div>
+          ) : null}
+          {state.participants ? (
+            <Participants names={state.participants} self={state.guestName} />
           ) : null}
         </div>
         <div className="status">

@@ -122,6 +122,8 @@ export type GuestOutbound =
     }
   /** The name the host accepted, possibly numbered to keep names unique on the link. */
   | { type: "renamed"; guestName: string }
+  /** Guests connected to the link, in the order they joined. Absent before plugin 0.4.0. */
+  | { type: "participants"; names: string[] }
   /** Replaces the guest's timeline. Large snapshots continue in `snapshot_more` messages. */
   | { type: "snapshot"; items: GuestItem[] }
   | { type: "snapshot_more"; items: GuestItem[] }

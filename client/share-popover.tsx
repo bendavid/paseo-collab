@@ -9,8 +9,10 @@ import { openExternal } from "./web";
 const LIST_REFRESH_MS = 4_000;
 
 function guestLabel(link: Link): string {
-  if (link.guests === 0) return "No guests connected";
-  return link.guests === 1 ? "1 guest connected" : `${link.guests} guests connected`;
+  if (link.participants.length === 0) return "No guests connected";
+  return link.participants.length === 1
+    ? "1 guest connected"
+    : `${link.participants.length} guests connected`;
 }
 
 export function SharePopover(props: PluginButtonContentProps) {
@@ -45,6 +47,18 @@ export function SharePopover(props: PluginButtonContentProps) {
       title: { color: theme.colors.foreground, fontSize: 16, fontWeight: "600" as const },
       text: { color: theme.colors.foreground },
       muted: { color: theme.colors.foregroundMuted, fontSize: 13 },
+      participants: { flexDirection: "row" as const, flexWrap: "wrap" as const, gap: 6 },
+      participant: {
+        color: theme.colors.foreground,
+        fontSize: 12,
+        paddingVertical: 2,
+        paddingHorizontal: 8,
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        backgroundColor: theme.colors.surface1,
+        overflow: "hidden" as const,
+      },
       danger: { color: theme.colors.statusDanger, fontSize: 13 },
       url: {
         color: theme.colors.foreground,
@@ -106,6 +120,15 @@ export function SharePopover(props: PluginButtonContentProps) {
         <Text style={styles.muted}>
           {guestLabel(link)} · {link.allowPrompts ? "Guests can send prompts" : "View only"}
         </Text>
+        {link.participants.length > 0 ? (
+          <View style={styles.participants} accessibilityLabel="Connected guests">
+            {link.participants.map((name) => (
+              <Text key={name} style={styles.participant}>
+                {name}
+              </Text>
+            ))}
+          </View>
+        ) : null}
         <View style={styles.row}>
           <Pressable
             accessibilityRole="button"

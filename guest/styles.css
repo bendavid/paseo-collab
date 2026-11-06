@@ -76,6 +76,27 @@ body,
   font-size: 13px;
 }
 
+.participants {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.participant {
+  font-size: 12px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.participant-host {
+  color: var(--muted);
+}
+
 .status {
   display: flex;
   flex-direction: column;
